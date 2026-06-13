@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { prisma } from "../prisma";
+import { DEMO, demoSettings } from "../demo";
 
 const SETTINGS_SELECT = {
   id: true,
@@ -34,6 +35,7 @@ export type Settings = {
 
 /** Setările userului; le creează cu valori default la prima accesare. Cache per-request. */
 export const getSettings = cache(async (userId: string): Promise<Settings> => {
+  if (DEMO) return demoSettings;
   const existing = await prisma.appSettings.findUnique({
     where: { userId },
     select: SETTINGS_SELECT,
@@ -48,6 +50,7 @@ export const getSettings = cache(async (userId: string): Promise<Settings> => {
 
 /** Doar fusul orar — folosit des în calcule de dateKey. */
 export const getUserTimezone = cache(async (userId: string): Promise<string> => {
+  if (DEMO) return demoSettings.timezone;
   const s = await prisma.appSettings.findUnique({
     where: { userId },
     select: { timezone: true },

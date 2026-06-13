@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "../prisma";
+import { DEMO } from "../demo";
 import { getSettings } from "../queries/settings";
 import { findOrCreateClient } from "../queries/clients";
 import { findOverlapping } from "../queries/appointments";
@@ -78,6 +79,9 @@ export async function createAppointment(
   input: CreateApptInput,
   source: CreatedFrom = "WEB",
 ): Promise<CreateApptResult> {
+  if (DEMO) {
+    return { ok: false, error: "Mod demo: conectează o bază de date pentru a salva." };
+  }
   const settings = await getSettings(userId);
   const tz = settings.timezone;
 
@@ -177,6 +181,7 @@ export async function changeStatus(
   id: string,
   status: AppointmentStatus,
 ) {
+  if (DEMO) return { ok: false as const, error: "Mod demo: modificările nu se salvează." };
   const appt = await prisma.appointment.findFirst({
     where: { id, userId },
     select: { id: true, clientId: true, status: true },
@@ -207,6 +212,7 @@ export async function reschedule(
   time: string,
   durationMinutes?: number,
 ) {
+  if (DEMO) return { ok: false as const, error: "Mod demo: reprogramarea nu se salvează." };
   const settings = await getSettings(userId);
   const tz = settings.timezone;
   const appt = await prisma.appointment.findFirst({

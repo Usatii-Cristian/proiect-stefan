@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "../prisma";
+import { DEMO, demoClients } from "../demo";
 
 export type ClientListItem = {
   id: string;
@@ -33,6 +34,17 @@ export async function listClients(
   const page = Math.max(1, opts.page ?? 1);
   const pageSize = opts.pageSize ?? PAGE_SIZE;
   const search = opts.search?.trim();
+
+  if (DEMO) {
+    const filtered = search
+      ? demoClients.filter(
+          (c) =>
+            c.name.toLowerCase().includes(search.toLowerCase()) ||
+            (c.phone ?? "").includes(search),
+        )
+      : demoClients;
+    return { items: filtered, total: filtered.length, page: 1, pageSize, hasMore: false };
+  }
 
   const where = {
     userId,
@@ -70,6 +82,16 @@ export async function listClients(
 export async function searchClients(userId: string, q: string, limit = 8) {
   const search = q.trim();
   if (!search) return [];
+  if (DEMO) {
+    return demoClients
+      .filter(
+        (c) =>
+          c.name.toLowerCase().includes(search.toLowerCase()) ||
+          (c.phone ?? "").includes(search),
+      )
+      .slice(0, limit)
+      .map((c) => ({ id: c.id, name: c.name, phone: c.phone }));
+  }
   return prisma.client.findMany({
     where: {
       userId,
@@ -85,6 +107,7 @@ export async function searchClients(userId: string, q: string, limit = 8) {
 }
 
 export async function getClient(userId: string, id: string) {
+  if (DEMO) return demoClients.find((c) => c.id === id) ?? null;
   return prisma.client.findFirst({
     where: { id, userId },
     select: {

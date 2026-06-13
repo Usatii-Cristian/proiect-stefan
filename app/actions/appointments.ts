@@ -13,6 +13,7 @@ import {
   changeStatus,
   reschedule,
 } from "@/lib/services/appointments";
+import { DEMO } from "@/lib/demo";
 
 export type ApptState =
   | { ok?: boolean; error?: string; id?: string }
@@ -112,6 +113,7 @@ export async function rescheduleAppointment(
 
 export async function deleteAppointment(id: string): Promise<void> {
   const user = await requireUser();
+  if (DEMO) return;
   const owned = await prisma.appointment.findFirst({
     where: { id, userId: user.id },
     select: { id: true },

@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/dal";
 import { getSettings } from "@/lib/queries/settings";
 import { listCategories } from "@/lib/queries/categories";
 import { todayKey, tomorrowKey } from "@/lib/date";
+import { DEMO } from "@/lib/demo";
 import AppShell from "@/app/components/AppShell";
 import PWARegister from "@/app/components/PWARegister";
 
@@ -23,6 +24,7 @@ export default async function AppLayout({
   return (
     <AppShell
       userName={user.name}
+      demo={DEMO}
       categories={categories}
       defaults={{
         today: todayKey(tz),

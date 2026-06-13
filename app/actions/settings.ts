@@ -4,14 +4,18 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { settingsSchema, categorySchema } from "@/lib/validation";
+import { DEMO } from "@/lib/demo";
 
 export type SettingsState = { ok?: boolean; error?: string } | undefined;
+
+const DEMO_MSG = "Mod demo: conectează o bază de date pentru a salva.";
 
 export async function createCategory(
   _prev: SettingsState,
   formData: FormData,
 ): Promise<SettingsState> {
   const user = await requireUser();
+  if (DEMO) return { error: DEMO_MSG };
   const parsed = categorySchema.safeParse({
     name: formData.get("name"),
     color: formData.get("color") || "#6366f1",
@@ -29,6 +33,7 @@ export async function createCategory(
 
 export async function deleteCategory(id: string): Promise<void> {
   const user = await requireUser();
+  if (DEMO) return;
   await prisma.category.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/settings");
 }
@@ -38,6 +43,7 @@ export async function updateSettings(
   formData: FormData,
 ): Promise<SettingsState> {
   const user = await requireUser();
+  if (DEMO) return { error: DEMO_MSG };
 
   const leadRaw = String(formData.get("reminderLeadMinutes") ?? "1440,180");
   const leadMinutes = leadRaw

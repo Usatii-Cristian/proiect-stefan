@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { env } from "@/lib/env";
 import { setWebhook } from "@/lib/telegram";
+import { DEMO } from "@/lib/demo";
 
 export type TgState = { ok?: boolean; error?: string; message?: string } | undefined;
 
@@ -22,6 +23,7 @@ export async function setWebhookAction(): Promise<TgState> {
 
 export async function unlinkTelegram(): Promise<void> {
   const user = await requireUser();
+  if (DEMO) return;
   await prisma.telegramAccount.deleteMany({ where: { userId: user.id } });
   revalidatePath("/telegram");
 }

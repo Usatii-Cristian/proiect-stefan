@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "../prisma";
+import { DEMO, demoAppointments } from "../demo";
 import type { AppointmentStatus } from "@prisma/client";
 
 /** Câmpuri suficiente pentru listări (folosesc snapshot-urile, fără include). */
@@ -42,6 +43,9 @@ const ACTIVE_STATUSES: AppointmentStatus[] = [
 
 /** Programările unei zile (Azi / Telegram). Query unic pe index userId+dateKey. */
 export function listByDateKey(userId: string, dateKey: string) {
+  if (DEMO) {
+    return Promise.resolve(demoAppointments().filter((a) => a.dateKey === dateKey));
+  }
   return prisma.appointment.findMany({
     where: { userId, dateKey },
     select: LIST_SELECT,
@@ -51,6 +55,10 @@ export function listByDateKey(userId: string, dateKey: string) {
 
 /** Mai multe zile deodată (săptămână / calendar). */
 export function listByDateKeys(userId: string, dateKeys: string[]) {
+  if (DEMO) {
+    const set = new Set(dateKeys);
+    return Promise.resolve(demoAppointments().filter((a) => set.has(a.dateKey)));
+  }
   return prisma.appointment.findMany({
     where: { userId, dateKey: { in: dateKeys } },
     select: LIST_SELECT,
@@ -60,6 +68,10 @@ export function listByDateKeys(userId: string, dateKeys: string[]) {
 
 /** Fereastră pentru Kanban (ex. ultimele zile + următoarele), grupare în UI. */
 export function listForKanban(userId: string, dateKeys: string[]) {
+  if (DEMO) {
+    const set = new Set(dateKeys);
+    return Promise.resolve(demoAppointments().filter((a) => set.has(a.dateKey)));
+  }
   return prisma.appointment.findMany({
     where: { userId, dateKey: { in: dateKeys } },
     select: LIST_SELECT,
@@ -68,6 +80,14 @@ export function listForKanban(userId: string, dateKeys: string[]) {
 }
 
 export function getAppointment(userId: string, id: string) {
+  if (DEMO) {
+    const a = demoAppointments().find((x) => x.id === id) ?? null;
+    return Promise.resolve(
+      a
+        ? { ...a, message: null, categoryId: null, createdFrom: "WEB" as const, createdAt: new Date() }
+        : null,
+    );
+  }
   return prisma.appointment.findFirst({
     where: { id, userId },
     select: {
@@ -82,6 +102,18 @@ export function getAppointment(userId: string, id: string) {
 
 /** Următoarea programare activă de acum încolo. */
 export async function nextAppointment(userId: string) {
+  if (DEMO) {
+    const now = Date.now();
+    return (
+      demoAppointments()
+        .filter(
+          (a) =>
+            a.startAt.getTime() >= now &&
+            ["NEW", "CONFIRMED", "IN_PROGRESS"].includes(a.status),
+        )
+        .sort((x, y) => x.startAt.getTime() - y.startAt.getTime())[0] ?? null
+    );
+  }
   return prisma.appointment.findFirst({
     where: {
       userId,
@@ -95,6 +127,19 @@ export async function nextAppointment(userId: string) {
 
 /** Numărători pentru dashboard, dintr-un singur groupBy pe zi. */
 export async function dayStats(userId: string, dateKey: string) {
+  if (DEMO) {
+    const items = demoAppointments().filter((a) => a.dateKey === dateKey);
+    const count = (s: AppointmentStatus) => items.filter((a) => a.status === s).length;
+    return {
+      total: items.length,
+      confirmed: count("CONFIRMED"),
+      inProgress: count("IN_PROGRESS"),
+      done: count("DONE"),
+      cancelled: count("CANCELLED"),
+      noShow: count("NO_SHOW"),
+      new: count("NEW"),
+    };
+  }
   const grouped = await prisma.appointment.groupBy({
     by: ["status"],
     where: { userId, dateKey },
@@ -126,6 +171,7 @@ export async function findOverlapping(
   endAt: Date,
   excludeId?: string,
 ) {
+  if (DEMO) return null;
   return prisma.appointment.findFirst({
     where: {
       userId,

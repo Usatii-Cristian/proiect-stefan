@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { clientSchema } from "@/lib/validation";
+import { DEMO } from "@/lib/demo";
 
 export type ClientState = { ok?: boolean; error?: string; id?: string } | undefined;
+
+const DEMO_MSG = "Mod demo: conectează o bază de date pentru a salva.";
 
 function clean(v: FormDataEntryValue | null): string | null {
   const s = typeof v === "string" ? v.trim() : "";
@@ -17,6 +20,7 @@ export async function createClient(
   formData: FormData,
 ): Promise<ClientState> {
   const user = await requireUser();
+  if (DEMO) return { error: DEMO_MSG };
   const parsed = clientSchema.safeParse({
     name: formData.get("name"),
     phone: formData.get("phone") ?? "",
@@ -48,6 +52,7 @@ export async function updateClient(
   formData: FormData,
 ): Promise<ClientState> {
   const user = await requireUser();
+  if (DEMO) return { error: DEMO_MSG };
   const id = String(formData.get("id") ?? "");
   const owned = await prisma.client.findFirst({
     where: { id, userId: user.id },
@@ -82,6 +87,7 @@ export async function updateClient(
 
 export async function deleteClient(id: string): Promise<void> {
   const user = await requireUser();
+  if (DEMO) return;
   await prisma.client.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/clients");
 }

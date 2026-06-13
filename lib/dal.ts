@@ -13,6 +13,11 @@ export type CurrentUser = {
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
+// Import târziu ca să evităm cicluri la load (demo.ts importă tipul CurrentUser).
+function demoActive() {
+  return !process.env.DATABASE_URL || !process.env.SESSION_SECRET;
+}
+
 /**
  * getCurrentUser optimizat:
  *  - memoizat cu React `cache()` ⇒ un singur query per render, oricâte componente îl cer
@@ -20,6 +25,9 @@ const ONE_DAY = 24 * 60 * 60 * 1000;
  *  - actualizare `lastUsedAt` throttle-uită (max o dată/zi) ⇒ fără write la fiecare request
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  if (demoActive()) {
+    return { id: "demo-user", name: "Cont Demo", email: "demo@local", role: "ADMIN" };
+  }
   const token = await getSessionToken();
   if (!token) return null;
 

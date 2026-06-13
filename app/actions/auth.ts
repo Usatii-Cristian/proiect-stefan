@@ -8,6 +8,7 @@ import { createSession, destroySession } from "@/lib/session";
 import { loginSchema } from "@/lib/validation";
 import { ensureDefaultCategories } from "@/lib/queries/categories";
 import { getSettings } from "@/lib/queries/settings";
+import { DEMO } from "@/lib/demo";
 
 export type AuthState = { error?: string } | undefined;
 
@@ -29,6 +30,7 @@ export async function login(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  if (DEMO) redirect("/dashboard");
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -62,6 +64,7 @@ export async function register(
   _prev: AuthState,
   formData: FormData,
 ): Promise<AuthState> {
+  if (DEMO) redirect("/dashboard");
   const count = await prisma.user.count();
   if (count > 0) {
     return { error: "Există deja un cont. Autentifică-te." };
@@ -92,6 +95,7 @@ export async function register(
 }
 
 export async function logout(): Promise<void> {
+  if (DEMO) redirect("/dashboard");
   await destroySession();
   redirect("/login");
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { prisma } from "../prisma";
+import { DEMO, demoCategories } from "../demo";
 
 export type CategoryLite = {
   id: string;
@@ -12,6 +13,7 @@ export type CategoryLite = {
 /** Lista de categorii a userului (select minimal). Cache per-request. */
 export const listCategories = cache(
   async (userId: string): Promise<CategoryLite[]> => {
+    if (DEMO) return demoCategories;
     return prisma.category.findMany({
       where: { userId },
       select: {
@@ -27,6 +29,7 @@ export const listCategories = cache(
 
 export const getCategory = cache(
   async (userId: string, id: string): Promise<CategoryLite | null> => {
+    if (DEMO) return demoCategories.find((c) => c.id === id) ?? null;
     return prisma.category.findFirst({
       where: { id, userId },
       select: {

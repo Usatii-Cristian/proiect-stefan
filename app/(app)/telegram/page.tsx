@@ -4,6 +4,7 @@ import { env } from "@/lib/env";
 import { getMe, signLinkToken } from "@/lib/telegram";
 import { formatDate } from "@/lib/date";
 import { getUserTimezone } from "@/lib/queries/settings";
+import { DEMO } from "@/lib/demo";
 import TelegramPanel from "@/app/components/TelegramPanel";
 
 export const dynamic = "force-dynamic";
@@ -14,14 +15,16 @@ export default async function TelegramPage() {
 
   const [botInfo, account, tz] = await Promise.all([
     enabled ? getMe() : Promise.resolve(null),
-    prisma.telegramAccount.findUnique({
-      where: { userId: user.id },
-      select: { username: true, firstName: true, linkedAt: true, chatId: true },
-    }),
+    DEMO
+      ? Promise.resolve(null)
+      : prisma.telegramAccount.findUnique({
+          where: { userId: user.id },
+          select: { username: true, firstName: true, linkedAt: true, chatId: true },
+        }),
     getUserTimezone(user.id),
   ]);
 
-  const token = signLinkToken(user.id);
+  const token = DEMO ? "demo" : signLinkToken(user.id);
   const botUsername = botInfo?.username ?? null;
   const deepLink = botUsername ? `https://t.me/${botUsername}?start=${token}` : null;
 

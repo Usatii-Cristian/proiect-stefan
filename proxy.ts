@@ -11,8 +11,19 @@ const COOKIE = process.env.SESSION_COOKIE_NAME || "pr_session";
 // Rute accesibile fără autentificare
 const PUBLIC_PATHS = ["/login"];
 
+// Mod demo: fără bază de date/secret, nu blocăm nimic.
+const DEMO = !process.env.DATABASE_URL || !process.env.SESSION_SECRET;
+
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (DEMO) {
+    if (pathname === "/login") {
+      return NextResponse.redirect(new URL("/dashboard", req.nextUrl));
+    }
+    return NextResponse.next();
+  }
+
   const hasSession = req.cookies.has(COOKIE);
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || pathname.startsWith(`${p}/`),

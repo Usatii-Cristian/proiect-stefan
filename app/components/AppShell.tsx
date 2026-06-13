@@ -81,11 +81,13 @@ function Fab() {
 
 export default function AppShell({
   userName,
+  demo = false,
   categories,
   defaults,
   children,
 }: {
   userName: string;
+  demo?: boolean;
   categories: CategoryLite[];
   defaults: QuickDefaults;
   children: ReactNode;
@@ -139,6 +141,11 @@ export default function AppShell({
             </div>
           </header>
 
+          {demo && (
+            <div className="border-b border-amber-300/40 bg-amber-100 px-4 py-2 text-center text-xs font-medium text-amber-900 dark:bg-amber-500/15 dark:text-amber-300">
+              Mod demo — date de exemplu. Conectează o bază de date ca să salvezi.
+            </div>
+          )}
           <main className="flex-1 px-4 pb-28 pt-5 lg:px-8 lg:pb-10">{children}</main>
         </div>
       </div>
