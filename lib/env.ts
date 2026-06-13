@@ -25,9 +25,14 @@ function int(name: string, fallback: number): number {
 }
 
 export const env = {
-  databaseUrl: required("DATABASE_URL"),
+  // Lazy: validate doar la accesare (nu la import) ca build-ul fără env să nu pice.
+  get databaseUrl() {
+    return required("DATABASE_URL");
+  },
+  get sessionSecret() {
+    return required("SESSION_SECRET");
+  },
 
-  sessionSecret: required("SESSION_SECRET"),
   sessionCookieName: optional("SESSION_COOKIE_NAME", "pr_session"),
   sessionTtlDays: int("SESSION_TTL_DAYS", 180),
 
