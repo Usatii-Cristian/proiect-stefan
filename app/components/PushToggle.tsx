@@ -49,7 +49,7 @@ export default function PushToggle() {
       });
       if (!res.ok) throw new Error("Salvarea abonamentului a eșuat.");
       setSubscribed(true);
-      setMsg("Notificări activate ✓");
+      setMsg("Notificări activate.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Eroare.");
     } finally {

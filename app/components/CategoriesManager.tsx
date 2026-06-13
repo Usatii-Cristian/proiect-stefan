@@ -8,6 +8,7 @@ import {
   type SettingsState,
 } from "@/app/actions/settings";
 import type { CategoryLite } from "./types";
+import { IconX } from "./icons";
 
 export default function CategoriesManager({ categories }: { categories: CategoryLite[] }) {
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function CategoriesManager({ categories }: { categories: Category
               className="tap grid size-6 place-items-center rounded-full text-ink-soft hover:bg-st-cancelled/10 hover:text-st-cancelled"
               title="Șterge"
             >
-              ✕
+              <IconX className="size-3.5" />
             </button>
           </span>
         ))}

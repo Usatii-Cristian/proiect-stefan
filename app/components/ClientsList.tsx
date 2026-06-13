@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { deleteClient } from "@/app/actions/clients";
 import ClientDialog, { type ClientEdit } from "./ClientDialog";
+import { IconPencil, IconTrash } from "./icons";
 
 export type ClientRow = {
   id: string;
@@ -78,14 +79,14 @@ export default function ClientsList({ items }: { items: ClientRow[] }) {
                 className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] hover:bg-[var(--color-surface-2)]"
                 title="Editează"
               >
-                ✎
+                <IconPencil className="size-4" />
               </button>
               <button
                 onClick={() => remove(c.id)}
                 className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]"
                 title="Șterge"
               >
-                🗑
+                <IconTrash className="size-4" />
               </button>
             </div>
           ))}

@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/appointments";
 import type { CategoryLite, QuickDefaults, QuickPrefill } from "./types";
 import ClientCombobox from "./ClientCombobox";
+import { IconCheck, IconMail, IconSend, IconX } from "./icons";
 
 function nextSlot(slot: number): string {
   const d = new Date();
@@ -98,7 +99,7 @@ export default function QuickAddDialog({
             className="tap grid size-9 place-items-center rounded-lg text-ink-soft hover:bg-[var(--color-surface-2)]"
             aria-label="Închide"
           >
-            ✕
+            <IconX className="size-4" />
           </button>
         </div>
 
@@ -204,23 +205,24 @@ export default function QuickAddDialog({
             <button
               type="button"
               onClick={() => setStatus(status === "NEW" ? "CONFIRMED" : "NEW")}
-              className={`${chip} ${status === "CONFIRMED" ? "bg-st-confirmed text-white" : ""}`}
+              className={`${chip} inline-flex items-center gap-1.5 ${status === "CONFIRMED" ? "bg-st-confirmed text-white" : ""}`}
             >
-              {status === "CONFIRMED" ? "✓ Confirmată" : "Nouă"}
+              {status === "CONFIRMED" && <IconCheck className="size-3.5" />}
+              {status === "CONFIRMED" ? "Confirmată" : "Nouă"}
             </button>
             <button
               type="button"
               onClick={() => setRemEmail(!remEmail)}
-              className={`${chip} ${remEmail ? "bg-brand text-white" : ""}`}
+              className={`${chip} inline-flex items-center gap-1.5 ${remEmail ? "bg-brand text-white" : ""}`}
             >
-              ✉ Email
+              <IconMail className="size-3.5" /> Email
             </button>
             <button
               type="button"
               onClick={() => setRemTelegram(!remTelegram)}
-              className={`${chip} ${remTelegram ? "bg-brand text-white" : ""}`}
+              className={`${chip} inline-flex items-center gap-1.5 ${remTelegram ? "bg-brand text-white" : ""}`}
             >
-              ✈ Telegram
+              <IconSend className="size-3.5" /> Telegram
             </button>
           </div>
 

@@ -7,6 +7,7 @@ import {
   updateClient,
   type ClientState,
 } from "@/app/actions/clients";
+import { IconX } from "./icons";
 
 export type ClientEdit = {
   id: string;
@@ -51,7 +52,9 @@ export default function ClientDialog({
           <h2 className="text-base font-bold">
             {client ? "Editează client" : "Client nou"}
           </h2>
-          <button onClick={onClose} className="tap grid size-9 place-items-center rounded-lg text-ink-soft hover:bg-[var(--color-surface-2)]">✕</button>
+          <button onClick={onClose} className="tap grid size-9 place-items-center rounded-lg text-ink-soft hover:bg-[var(--color-surface-2)]" aria-label="Închide">
+            <IconX className="size-4" />
+          </button>
         </div>
 
         <form action={formAction} className="flex flex-col gap-3">

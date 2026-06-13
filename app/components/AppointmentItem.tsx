@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setStatus, deleteAppointment } from "@/app/actions/appointments";
 import { STATUS_META } from "./status";
+import { IconCheck, IconCheckCircle, IconDots, IconMail, IconSend } from "./icons";
 import type { ApptStatus, ApptVM } from "./types";
 
 const actionBtn =
@@ -47,8 +48,9 @@ export default function AppointmentItem({ appt }: { appt: ApptVM }) {
         <div className="flex items-center gap-2">
           <span className="truncate font-semibold">{appt.clientName}</span>
           {(appt.remEmail || appt.remTelegram) && (
-            <span className="text-xs text-ink-soft">
-              {appt.remEmail && "✉"} {appt.remTelegram && "✈"}
+            <span className="flex items-center gap-1 text-ink-soft">
+              {appt.remEmail && <IconMail className="size-3.5" />}
+              {appt.remTelegram && <IconSend className="size-3.5" />}
             </span>
           )}
         </div>
@@ -62,17 +64,21 @@ export default function AppointmentItem({ appt }: { appt: ApptVM }) {
 
       <div className="relative flex items-center gap-1.5">
         {appt.status !== "CONFIRMED" && appt.status !== "DONE" && (
-          <button title="Confirmă" onClick={() => change("CONFIRMED")} className={actionBtn}>✓</button>
+          <button title="Confirmă" onClick={() => change("CONFIRMED")} className={actionBtn}>
+            <IconCheck className="size-4" />
+          </button>
         )}
         {appt.status !== "DONE" && (
-          <button title="Finalizat" onClick={() => change("DONE")} className={`${actionBtn} text-st-done`}>✔</button>
+          <button title="Finalizat" onClick={() => change("DONE")} className={`${actionBtn} text-st-done`}>
+            <IconCheckCircle className="size-4" />
+          </button>
         )}
         <button
           onClick={() => setMenu((m) => !m)}
           className={actionBtn}
           title="Mai mult"
         >
-          ⋯
+          <IconDots className="size-4" />
         </button>
         {menu && (
           <div className="absolute right-0 top-11 z-20 w-44 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface)] p-1 shadow-lg">

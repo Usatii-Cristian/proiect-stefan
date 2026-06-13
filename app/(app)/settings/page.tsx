@@ -5,6 +5,7 @@ import { listCategories } from "@/lib/queries/categories";
 import SettingsForm from "@/app/components/SettingsForm";
 import CategoriesManager from "@/app/components/CategoriesManager";
 import PushToggle from "@/app/components/PushToggle";
+import { IconChevronRight } from "@/app/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export default async function SettingsPage() {
           <h2 className="text-base font-bold">Telegram Bot</h2>
           <p className="text-sm text-ink-soft">Conectează botul și gestionează din chat.</p>
         </div>
-        <span className="text-brand">→</span>
+        <IconChevronRight className="size-5 text-brand" />
       </Link>
     </div>
   );

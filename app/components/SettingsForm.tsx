@@ -88,7 +88,7 @@ export default function SettingsForm({ settings }: { settings: Settings }) {
       </div>
 
       {state?.error && <p className="text-sm text-st-cancelled">{state.error}</p>}
-      {state?.ok && <p className="text-sm text-st-done">Salvat ✓</p>}
+      {state?.ok && <p className="text-sm text-st-done">Salvat.</p>}
 
       <button type="submit" disabled={pending} className="tap h-11 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">
         {pending ? "Se salvează…" : "Salvează setările"}

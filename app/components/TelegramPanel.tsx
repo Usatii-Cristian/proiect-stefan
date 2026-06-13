@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { setWebhookAction, unlinkTelegram } from "@/app/actions/telegram";
+import { IconSend } from "./icons";
 
 export default function TelegramPanel({
   enabled,
@@ -24,7 +25,7 @@ export default function TelegramPanel({
   function doWebhook() {
     start(async () => {
       const res = await setWebhookAction();
-      setMsg(res?.ok ? res.message ?? "Webhook setat ✓" : res?.error ?? "Eroare");
+      setMsg(res?.ok ? res.message ?? "Webhook setat." : res?.error ?? "Eroare");
       router.refresh();
     });
   }
@@ -59,7 +60,7 @@ export default function TelegramPanel({
               rel="noopener noreferrer"
               className="tap inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand px-5 font-semibold text-white hover:bg-brand-strong"
             >
-              ✈ Deschide @{botUsername}
+              <IconSend className="size-4" /> Deschide @{botUsername}
             </a>
           ) : (
             <p className="rounded-lg bg-[var(--color-surface-2)] px-3 py-2 text-sm">

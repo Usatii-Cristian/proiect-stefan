@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/date";
 import { getUserTimezone } from "@/lib/queries/settings";
 import { DEMO } from "@/lib/demo";
 import TelegramPanel from "@/app/components/TelegramPanel";
+import { IconCalendar, IconCheckCircle, IconMic, IconSearch } from "@/app/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -57,12 +58,24 @@ export default async function TelegramPage() {
       />
 
       <div className="card mt-5 p-5 text-sm text-ink-soft">
-        <p className="mb-2 font-semibold text-ink">Comenzi rapide în bot</p>
-        <ul className="space-y-1">
-          <li>📅 Azi / 📆 Mâine / 🗓 Săptămâna — listare programări</li>
-          <li>✅ Confirmă · ✔️ Finalizat · ❌ Anulează — direct din buton</li>
-          <li>🎤 Trimite un mesaj vocal → programare cu confirmare</li>
-          <li>🔍 Scrie un nume → caută clientul</li>
+        <p className="mb-3 font-semibold text-ink">Comenzi rapide în bot</p>
+        <ul className="space-y-2.5">
+          <li className="flex items-center gap-2.5">
+            <IconCalendar className="size-4 shrink-0 text-brand" />
+            Azi / Mâine / Săptămâna — listare programări
+          </li>
+          <li className="flex items-center gap-2.5">
+            <IconCheckCircle className="size-4 shrink-0 text-brand" />
+            Confirmă · Finalizat · Anulează — direct din buton
+          </li>
+          <li className="flex items-center gap-2.5">
+            <IconMic className="size-4 shrink-0 text-brand" />
+            Trimite un mesaj vocal pentru o programare cu confirmare
+          </li>
+          <li className="flex items-center gap-2.5">
+            <IconSearch className="size-4 shrink-0 text-brand" />
+            Scrie un nume pentru a căuta clientul
+          </li>
         </ul>
       </div>
     </div>

@@ -10,6 +10,7 @@ import {
 } from "@/lib/date";
 import { toVM } from "@/lib/view";
 import AppointmentItem from "@/app/components/AppointmentItem";
+import { IconChevronLeft, IconChevronRight } from "@/app/components/icons";
 import type { ApptVM } from "@/app/components/types";
 
 export const dynamic = "force-dynamic";
@@ -98,7 +99,7 @@ async function WeekView({ userId, tz, anchor }: { userId: string; tz: string; an
         view="week"
         prev={addDaysToKey(keys[0], -7, tz)}
         next={addDaysToKey(keys[0], 7, tz)}
-        label={`${keys[0]} → ${keys[6]}`}
+        label={`${keys[0]} – ${keys[6]}`}
       />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
         {keys.map((day) => {
@@ -189,9 +190,13 @@ async function MonthView({ userId, tz, anchor }: { userId: string; tz: string; a
 function Nav({ view, prev, next, label }: { view: View; prev: string; next: string; label: string }) {
   return (
     <div className="mb-4 flex items-center justify-between">
-      <Link href={`/calendar?view=${view}&date=${prev}`} className="tap card grid size-9 place-items-center rounded-lg">←</Link>
+      <Link href={`/calendar?view=${view}&date=${prev}`} className="tap card grid size-9 place-items-center rounded-lg" aria-label="Anterior">
+        <IconChevronLeft className="size-4" />
+      </Link>
       <span className="text-sm font-semibold capitalize">{label}</span>
-      <Link href={`/calendar?view=${view}&date=${next}`} className="tap card grid size-9 place-items-center rounded-lg">→</Link>
+      <Link href={`/calendar?view=${view}&date=${next}`} className="tap card grid size-9 place-items-center rounded-lg" aria-label="Următor">
+        <IconChevronRight className="size-4" />
+      </Link>
     </div>
   );
 }

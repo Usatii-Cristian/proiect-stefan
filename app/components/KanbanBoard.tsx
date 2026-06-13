@@ -52,7 +52,7 @@ export default function KanbanBoard({ items }: { items: ApptVM[] }) {
                   >
                     {KANBAN_COLUMNS.map((c) => (
                       <option key={c.status} value={c.status}>
-                        → {c.label}
+                        {c.label}
                       </option>
                     ))}
                   </select>

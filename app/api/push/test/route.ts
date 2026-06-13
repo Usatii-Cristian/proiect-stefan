@@ -10,7 +10,7 @@ export async function POST() {
 
   const res = await sendPushToUser(user.id, {
     title: "Programări",
-    body: "Notificările funcționează ✓",
+    body: "Notificările funcționează corect.",
     url: "/dashboard",
   });
   return NextResponse.json({ ok: true, ...res });

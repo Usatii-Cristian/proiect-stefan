@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/dal";
 import { listClients } from "@/lib/queries/clients";
 import ClientSearch from "@/app/components/ClientSearch";
 import ClientsList, { type ClientRow } from "@/app/components/ClientsList";
+import { IconChevronLeft, IconChevronRight } from "@/app/components/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +41,11 @@ export default async function ClientsPage({
       {(page > 1 || hasMore) && (
         <div className="mt-5 flex items-center justify-between">
           <PageLink disabled={page <= 1} href={`/clients?${qp(q, page - 1)}`}>
-            ← Anterior
+            <IconChevronLeft className="size-4" /> Anterior
           </PageLink>
           <span className="text-sm text-ink-soft">Pagina {page}</span>
           <PageLink disabled={!hasMore} href={`/clients?${qp(q, page + 1)}`}>
-            Următor →
+            Următor <IconChevronRight className="size-4" />
           </PageLink>
         </div>
       )}
@@ -70,13 +71,13 @@ function PageLink({
 }) {
   if (disabled) {
     return (
-      <span className="rounded-lg px-3 py-2 text-sm text-ink-soft opacity-40">
+      <span className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-ink-soft opacity-40">
         {children}
       </span>
     );
   }
   return (
-    <Link href={href} className="tap card rounded-lg px-3 py-2 text-sm font-medium">
+    <Link href={href} className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium">
       {children}
     </Link>
   );
