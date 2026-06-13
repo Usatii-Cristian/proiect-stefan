@@ -1,0 +1,100 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { deleteClient } from "@/app/actions/clients";
+import ClientDialog, { type ClientEdit } from "./ClientDialog";
+
+export type ClientRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  telegramChatId: string | null;
+  notes: string | null;
+  noShowCount: number;
+  lastAppointmentAt: string | null;
+};
+
+export default function ClientsList({ items }: { items: ClientRow[] }) {
+  const router = useRouter();
+  const [, start] = useTransition();
+  const [dialog, setDialog] = useState<{ open: boolean; client: ClientEdit | null }>({
+    open: false,
+    client: null,
+  });
+
+  function remove(id: string) {
+    if (!confirm("Ștergi clientul? Programările lui se șterg și ele.")) return;
+    start(async () => {
+      await deleteClient(id);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setDialog({ open: true, client: null })}
+        className="tap mb-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong"
+      >
+        + Client nou
+      </button>
+
+      {items.length === 0 ? (
+        <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">
+          Niciun client găsit.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {items.map((c) => (
+            <div key={c.id} className="card flex items-center gap-3 p-3">
+              <div className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
+                {c.name.slice(0, 1).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{c.name}</p>
+                <p className="truncate text-xs text-ink-soft">
+                  {c.phone ?? c.email ?? "—"}
+                  {c.noShowCount > 0 && (
+                    <span className="ml-2 text-st-noshow">· {c.noShowCount} absențe</span>
+                  )}
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  setDialog({
+                    open: true,
+                    client: {
+                      id: c.id,
+                      name: c.name,
+                      phone: c.phone,
+                      email: c.email,
+                      telegramChatId: c.telegramChatId,
+                      notes: c.notes,
+                    },
+                  })
+                }
+                className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] hover:bg-[var(--color-surface-2)]"
+                title="Editează"
+              >
+                ✎
+              </button>
+              <button
+                onClick={() => remove(c.id)}
+                className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]"
+                title="Șterge"
+              >
+                🗑
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {dialog.open && (
+        <ClientDialog client={dialog.client} onClose={() => setDialog({ open: false, client: null })} />
+      )}
+    </>
+  );
+}

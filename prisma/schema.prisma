@@ -1,0 +1,288 @@
+// Prisma schema — MongoDB
+// Optimizat pentru viteză: select peste tot în query-uri, indexuri compuse,
+// snapshot-uri denormalizate pe Appointment pentru listări fără join (ex. Telegram).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+enum AppointmentStatus {
+  NEW
+  CONFIRMED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+  NO_SHOW
+}
+
+enum CreatedFrom {
+  WEB
+  TELEGRAM
+  VOICE
+}
+
+enum ReminderType {
+  EMAIL
+  TELEGRAM
+  PWA
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  EMAIL
+  TELEGRAM
+  PWA
+}
+
+enum VoiceSource {
+  WEB
+  TELEGRAM
+}
+
+enum VoiceStatus {
+  TRANSCRIBED
+  PARSED
+  CONFIRMED
+  DISCARDED
+  FAILED
+}
+
+// ----------------------------------------------------------------------------
+// Models
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions        Session[]
+  clients         Client[]
+  appointments    Appointment[]
+  categories      Category[]
+  reminders       Reminder[]
+  telegramAccount TelegramAccount?
+  settings        AppSettings?
+  notificationLog NotificationLog[]
+  voiceLog        VoiceCommandLog[]
+  pushSubs        PushSubscription[]
+}
+
+model PushSubscription {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Session {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+  userAgent  String?
+  ip         String?
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Client {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String   @db.ObjectId
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  phone             String?
+  email             String?
+  telegramChatId    String?
+  notes             String?
+  noShowCount       Int      @default(0)
+  lastAppointmentAt DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@index([userId, name])
+  @@index([userId, createdAt])
+  @@index([userId, phone])
+}
+
+model Category {
+  id                     String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId                 String   @db.ObjectId
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                   String
+  color                  String   @default("#6366f1")
+  defaultDurationMinutes Int      @default(30)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@index([userId, name])
+}
+
+model Appointment {
+  id        String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String  @db.ObjectId
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String  @db.ObjectId
+  client    Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  categoryId String? @db.ObjectId
+  category  Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  title   String
+  message String?
+  status  AppointmentStatus @default(NEW)
+
+  startAt DateTime
+  endAt   DateTime
+  // dateKey: "YYYY-MM-DD" (în fusul orar al userului) pentru query-uri zilnice ultra-rapide
+  dateKey String
+
+  // Snapshot-uri denormalizate — Telegram/listări afișează fără include/join
+  clientNameSnapshot   String
+  categoryNameSnapshot String?
+  categoryColorSnapshot String?
+
+  reminderEmailEnabled    Boolean @default(false)
+  reminderTelegramEnabled Boolean @default(false)
+
+  createdFrom CreatedFrom @default(WEB)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  reminders Reminder[]
+
+  @@index([userId, dateKey])
+  @@index([userId, startAt])
+  @@index([userId, status])
+  @@index([userId, clientId])
+  @@index([clientId])
+}
+
+model Reminder {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String         @db.ObjectId
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointmentId String         @db.ObjectId
+  appointment   Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  type          ReminderType
+  sendAt        DateTime
+  status        ReminderStatus @default(PENDING)
+  attempts      Int            @default(0)
+  lastError     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([status, sendAt])
+  @@index([appointmentId])
+  @@index([userId])
+}
+
+model TelegramAccount {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @unique @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  telegramUserId String   @unique
+  chatId         String
+  username       String?
+  firstName      String?
+  // ce view e activ în bot, pentru context la callback-uri
+  lastMenuState  String?
+  linkedAt       DateTime @default(now())
+
+  // telegramUserId e deja indexat prin @unique
+  @@index([chatId])
+}
+
+model NotificationLog {
+  id            String              @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String              @db.ObjectId
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel       NotificationChannel
+  target        String?
+  appointmentId String?             @db.ObjectId
+  reminderId    String?             @db.ObjectId
+  success       Boolean
+  error         String?
+  createdAt     DateTime            @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model VoiceCommandLog {
+  id            String      @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String      @db.ObjectId
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source        VoiceSource @default(WEB)
+  transcript    String
+  parsedJson    Json?
+  status        VoiceStatus @default(TRANSCRIBED)
+  appointmentId String?     @db.ObjectId
+  createdAt     DateTime    @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model AppSettings {
+  id     String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @unique @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  timezone String @default("Europe/Bucharest")
+  locale   String @default("ro")
+  theme    String @default("system") // system | light | dark
+
+  // Program de lucru (folosit la calendar + verificare slot ocupat)
+  workdayStart String @default("09:00")
+  workdayEnd   String @default("18:00")
+  slotMinutes  Int    @default(30)
+
+  // Default-uri pentru programări noi
+  defaultReminderEmail    Boolean @default(false)
+  defaultReminderTelegram Boolean @default(true)
+  // Minute înainte de programare la care se trimit reminderele (ex. 24h + 3h)
+  reminderLeadMinutes     Int[]   @default([1440, 180])
+
+  // Email (override peste env, opțional)
+  emailFromName  String?
+  emailFromAddr  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

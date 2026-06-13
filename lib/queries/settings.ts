@@ -1,0 +1,56 @@
+import "server-only";
+import { cache } from "react";
+import { prisma } from "../prisma";
+
+const SETTINGS_SELECT = {
+  id: true,
+  timezone: true,
+  locale: true,
+  theme: true,
+  workdayStart: true,
+  workdayEnd: true,
+  slotMinutes: true,
+  defaultReminderEmail: true,
+  defaultReminderTelegram: true,
+  reminderLeadMinutes: true,
+  emailFromName: true,
+  emailFromAddr: true,
+} as const;
+
+export type Settings = {
+  id: string;
+  timezone: string;
+  locale: string;
+  theme: string;
+  workdayStart: string;
+  workdayEnd: string;
+  slotMinutes: number;
+  defaultReminderEmail: boolean;
+  defaultReminderTelegram: boolean;
+  reminderLeadMinutes: number[];
+  emailFromName: string | null;
+  emailFromAddr: string | null;
+};
+
+/** Setările userului; le creează cu valori default la prima accesare. Cache per-request. */
+export const getSettings = cache(async (userId: string): Promise<Settings> => {
+  const existing = await prisma.appSettings.findUnique({
+    where: { userId },
+    select: SETTINGS_SELECT,
+  });
+  if (existing) return existing;
+
+  return prisma.appSettings.create({
+    data: { userId },
+    select: SETTINGS_SELECT,
+  });
+});
+
+/** Doar fusul orar — folosit des în calcule de dateKey. */
+export const getUserTimezone = cache(async (userId: string): Promise<string> => {
+  const s = await prisma.appSettings.findUnique({
+    where: { userId },
+    select: { timezone: true },
+  });
+  return s?.timezone ?? "Europe/Bucharest";
+});
