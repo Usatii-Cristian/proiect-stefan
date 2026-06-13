@@ -81,4 +81,10 @@ export const env = {
   },
 
   isProd: process.env.NODE_ENV === "production",
+
+  // Aplicația e „activă" doar când are baza de date și secretul de sesiune.
+  // Cât timp lipsesc, afișăm un ecran de configurare în loc de erori.
+  get isConfigured() {
+    return Boolean(process.env.DATABASE_URL && process.env.SESSION_SECRET);
+  },
 };
