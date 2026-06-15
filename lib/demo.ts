@@ -22,6 +22,9 @@ export const demoUser: CurrentUser = {
   name: "Cont Demo",
   email: "demo@local",
   role: "ADMIN",
+  permissions: [],
+  isActive: true,
+  teamIds: [],
 };
 
 export const demoSettings: Settings = {

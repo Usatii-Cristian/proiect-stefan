@@ -14,9 +14,10 @@ import { listByDateKey, listByDateKeys } from "../queries/appointments";
 import { searchClients } from "../queries/clients";
 import { listCategories } from "../queries/categories";
 import { createAppointment, changeStatus } from "./appointments";
-import { transcribeAndParse } from "./voice";
+import { createTask, changeTaskStatus } from "./tasks";
+import { transcribeAudio } from "./voice";
 import { todayKey, tomorrowKey, weekKeys, formatTime, humanDay } from "../date";
-import type { AppointmentStatus } from "@prisma/client";
+import type { AppointmentStatus, TaskStatus } from "@prisma/client";
 
 const STATUS_RO: Record<AppointmentStatus, string> = {
   NEW: "Nou",
@@ -186,7 +187,20 @@ async function handleCallback(cb: Cb) {
   if (data === "SETTINGS")
     return void sendMessage(chatId, "⚙️ Setările se gestionează din aplicație.", mainMenu());
 
-  // Schimbare status
+  // Schimbare status TASK (din butoanele de notificare)
+  const taskMatch = data.match(/^TST:(\w+):(.+)$/);
+  if (taskMatch) {
+    const res = await changeTaskStatus(
+      taskMatch[2],
+      user.userId,
+      taskMatch[1] as TaskStatus,
+      { fromTelegram: true },
+    );
+    if (!res.ok) await sendMessage(chatId, `❌ ${res.error}`);
+    return;
+  }
+
+  // Schimbare status programare
   const stMatch = data.match(/^ST_(CONFIRM|DONE|CANCEL|NOSHOW):(.+)$/);
   if (stMatch) {
     const map: Record<string, AppointmentStatus> = {
@@ -223,34 +237,25 @@ async function handleVoice(chatId: number, userId: string, fileId: string) {
   if (!buf) return void sendMessage(chatId, "Nu am putut descărca audio-ul.");
 
   try {
-    const tz = await getUserTimezone(userId);
-    const { transcript, parsed } = await transcribeAndParse(buf, "voice.ogg", "audio/ogg", tz);
+    const transcript = (await transcribeAudio(buf, "voice.ogg", "audio/ogg")).trim();
+    if (!transcript) return void sendMessage(chatId, "Nu am înțeles mesajul vocal.");
 
-    const log = await prisma.voiceCommandLog.create({
-      data: { userId, source: "TELEGRAM", transcript, parsedJson: parsed, status: "PARSED" },
-      select: { id: true },
-    });
+    await prisma.voiceCommandLog
+      .create({ data: { userId, source: "TELEGRAM", transcript, status: "CONFIRMED" } })
+      .catch(() => {});
 
-    if (!parsed.clientName || !parsed.dateKey || !parsed.time) {
-      await sendMessage(
-        chatId,
-        `🗣 „${transcript}"\n\nNu am toate datele (client/dată/oră). Reformulează, te rog.`,
-      );
-      return;
+    const title = transcript.length > 140 ? `${transcript.slice(0, 140)}…` : transcript;
+    const res = await createTask(
+      userId,
+      { title, description: transcript !== title ? transcript : undefined },
+      "VOICE",
+    );
+
+    if (res.ok) {
+      await sendMessage(chatId, `✅ <b>Task creat din voce</b>\n«${res.title}»`);
+    } else {
+      await sendMessage(chatId, `❌ ${res.error}`);
     }
-
-    const preview =
-      `🗣 „${transcript}"\n\n` +
-      `Creez programare pentru <b>${parsed.clientName}</b>` +
-      `${parsed.category ? `, ${parsed.category}` : ""}` +
-      ` pe <b>${parsed.dateKey}</b> la <b>${parsed.time}</b>?`;
-    const buttons: InlineButton[][] = [
-      [
-        { text: "✅ Creează", callback_data: `VCREATE:${log.id}` },
-        { text: "✖ Renunță", callback_data: `VCANCEL:${log.id}` },
-      ],
-    ];
-    await sendMessage(chatId, preview, buttons);
   } catch (e) {
     await sendMessage(chatId, `❌ ${e instanceof Error ? e.message : "Eroare procesare voce."}`);
   }

@@ -3,12 +3,16 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 import { getSessionToken, hashToken } from "./session";
+import { can, type PermissionKey } from "./permissions";
 
 export type CurrentUser = {
   id: string;
   name: string;
   email: string;
   role: "ADMIN" | "STAFF";
+  permissions: string[];
+  isActive: boolean;
+  teamIds: string[];
 };
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -26,7 +30,15 @@ function demoActive() {
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (demoActive()) {
-    return { id: "demo-user", name: "Cont Demo", email: "demo@local", role: "ADMIN" };
+    return {
+      id: "demo-user",
+      name: "Cont Demo",
+      email: "demo@local",
+      role: "ADMIN",
+      permissions: [],
+      isActive: true,
+      teamIds: [],
+    };
   }
   const token = await getSessionToken();
   if (!token) return null;
@@ -38,7 +50,15 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       expiresAt: true,
       lastUsedAt: true,
       user: {
-        select: { id: true, name: true, email: true, role: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          permissions: true,
+          isActive: true,
+          teamIds: true,
+        },
       },
     },
   });
@@ -49,6 +69,9 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
     return null;
   }
+
+  // Utilizator dezactivat ⇒ tratat ca neautentificat
+  if (!session.user.isActive) return null;
 
   if (Date.now() - session.lastUsedAt.getTime() > ONE_DAY) {
     await prisma.session
@@ -65,3 +88,10 @@ export const requireUser = cache(async (): Promise<CurrentUser> => {
   if (!user) redirect("/login");
   return user;
 });
+
+/** Pagini protejate de permisiune: redirect la /dashboard dacă lipsește. */
+export async function requirePermission(key: PermissionKey): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!can(user, key)) redirect("/dashboard");
+  return user;
+}

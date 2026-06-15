@@ -1,0 +1,133 @@
+"use client";
+
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  createTeam,
+  updateTeam,
+  deleteTeam,
+  type TeamState,
+} from "@/app/actions/teams";
+import { IconX, IconPencil, IconTrash } from "./icons";
+
+type Opt = { id: string; name: string };
+type Team = {
+  id: string;
+  name: string;
+  description: string | null;
+  memberIds: string[];
+  members: { id: string; name: string }[];
+};
+
+const input =
+  "h-11 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand";
+
+export default function TeamsManager({ teams, users }: { teams: Team[]; users: Opt[] }) {
+  const router = useRouter();
+  const [, start] = useTransition();
+  const [dialog, setDialog] = useState<{ open: boolean; team: Team | null }>({
+    open: false,
+    team: null,
+  });
+
+  function remove(id: string) {
+    if (!confirm("Ștergi echipa?")) return;
+    start(async () => {
+      await deleteTeam(id);
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setDialog({ open: true, team: null })}
+        className="tap mb-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong"
+      >
+        + Echipă nouă
+      </button>
+
+      {teams.length === 0 ? (
+        <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">Nicio echipă.</div>
+      ) : (
+        <div className="flex flex-col gap-2.5">
+          {teams.map((t) => (
+            <div key={t.id} className="card flex items-center gap-3 p-3.5">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{t.name}</p>
+                <p className="truncate text-xs text-ink-soft">
+                  {t.members.length} membri{t.members.length ? `: ${t.members.map((m) => m.name).join(", ")}` : ""}
+                </p>
+              </div>
+              <button onClick={() => setDialog({ open: true, team: t })} className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] hover:bg-[var(--color-surface-2)]" title="Editează">
+                <IconPencil className="size-4" />
+              </button>
+              <button onClick={() => remove(t.id)} className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]" title="Șterge">
+                <IconTrash className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {dialog.open && (
+        <TeamDialog team={dialog.team} users={users} onClose={() => setDialog({ open: false, team: null })} />
+      )}
+    </>
+  );
+}
+
+function TeamDialog({ team, users, onClose }: { team: Team | null; users: Opt[]; onClose: () => void }) {
+  const router = useRouter();
+  const action = team ? updateTeam : createTeam;
+  const [state, formAction, pending] = useActionState<TeamState, FormData>(action, undefined);
+  useEffect(() => {
+    if (state?.ok) {
+      router.refresh();
+      onClose();
+    }
+  }, [state, router, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="card max-h-[92dvh] w-full max-w-lg overflow-auto rounded-b-none rounded-t-2xl p-5 sm:rounded-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-base font-bold">{team ? "Editează echipa" : "Echipă nouă"}</h2>
+          <button onClick={onClose} className="tap grid size-9 place-items-center rounded-lg text-ink-soft hover:bg-[var(--color-surface-2)]" aria-label="Închide">
+            <IconX className="size-4" />
+          </button>
+        </div>
+        <form action={formAction} className="flex flex-col gap-3">
+          {team && <input type="hidden" name="id" value={team.id} />}
+          <input name="name" defaultValue={team?.name ?? ""} placeholder="Nume echipă *" required className={input} />
+          <textarea name="description" defaultValue={team?.description ?? ""} placeholder="Descriere" rows={2} className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm outline-none focus:border-brand" />
+          <div className="rounded-xl border border-[var(--color-line)] p-3">
+            <p className="mb-2 text-xs font-semibold text-ink-soft">Membri</p>
+            {users.length === 0 ? (
+              <p className="text-sm text-ink-soft">Niciun utilizator disponibil.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                {users.map((u) => (
+                  <label key={u.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="memberIds"
+                      value={u.id}
+                      defaultChecked={team?.memberIds.includes(u.id) ?? false}
+                      className="size-4 accent-[var(--color-brand)]"
+                    />
+                    {u.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          {state?.error && <p className="text-sm text-st-cancelled">{state.error}</p>}
+          <button type="submit" disabled={pending} className="tap h-12 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">
+            {pending ? "Se salvează…" : "Salvează"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

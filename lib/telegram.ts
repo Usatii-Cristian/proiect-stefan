@@ -127,6 +127,28 @@ export function mainMenu(): InlineButton[][] {
   ];
 }
 
+export const TASK_STATUS_RO: Record<string, string> = {
+  PENDING: "În așteptare",
+  READ: "Citit",
+  IN_PROGRESS: "În lucru",
+  DONE: "Finalizat",
+  CANCELLED: "Anulat",
+};
+
+/** Butoane de status pentru un task (asignat). */
+export function taskStatusButtons(taskId: string): InlineButton[][] {
+  return [
+    [
+      { text: "👁 Citit", callback_data: `TST:READ:${taskId}` },
+      { text: "▶️ În lucru", callback_data: `TST:IN_PROGRESS:${taskId}` },
+    ],
+    [
+      { text: "✅ Finalizat", callback_data: `TST:DONE:${taskId}` },
+      { text: "✖️ Anulează", callback_data: `TST:CANCELLED:${taskId}` },
+    ],
+  ];
+}
+
 /** Butoane per programare. */
 export function apptButtons(id: string): InlineButton[][] {
   return [
