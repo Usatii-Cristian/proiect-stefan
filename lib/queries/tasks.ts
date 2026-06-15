@@ -64,13 +64,16 @@ export type TaskFilter = {
   status?: TaskStatus;
   type?: TaskType;
   projectId?: string;
+  search?: string;
   userId: string; // userul curent (pentru scope)
   teamIds?: string[]; // echipele userului curent
+  page?: number;
+  pageSize?: number;
 };
 
-export async function listTasks(filter: TaskFilter): Promise<TaskRow[]> {
-  if (DEMO) return [];
+const PAGE_SIZE = 30;
 
+function buildWhere(filter: TaskFilter): Prisma.TaskWhereInput {
   const where: Prisma.TaskWhereInput = {};
   if (filter.scope === "mine") {
     where.OR = [
@@ -83,14 +86,32 @@ export async function listTasks(filter: TaskFilter): Promise<TaskRow[]> {
   if (filter.status) where.status = filter.status;
   if (filter.type) where.type = filter.type;
   if (filter.projectId) where.projectId = filter.projectId;
+  if (filter.search?.trim()) {
+    where.title = { contains: filter.search.trim(), mode: "insensitive" };
+  }
+  return where;
+}
 
+export async function listTasks(
+  filter: TaskFilter,
+): Promise<{ items: TaskRow[]; hasMore: boolean; page: number }> {
+  if (DEMO) return { items: [], hasMore: false, page: 1 };
+
+  const page = Math.max(1, filter.page ?? 1);
+  const pageSize = filter.pageSize ?? PAGE_SIZE;
+  const where = buildWhere(filter);
+
+  // Aducem pageSize+1 ca să știm dacă există pagină următoare, fără count separat.
   const rows = await prisma.task.findMany({
     where,
     select: TASK_SELECT,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-    take: 200,
+    skip: (page - 1) * pageSize,
+    take: pageSize + 1,
   });
-  return rows.map(toRow);
+
+  const hasMore = rows.length > pageSize;
+  return { items: rows.slice(0, pageSize).map(toRow), hasMore, page };
 }
 
 export async function getTask(id: string) {
