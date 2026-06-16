@@ -48,7 +48,7 @@ export async function updateSettings(
   const leadRaw = String(formData.get("reminderLeadMinutes") ?? "1440,180");
   const leadMinutes = leadRaw
     .split(",")
-    .map((s) => parseInt(s.trim(), 10))
+    .map((s) => parseFloat(s.trim()))
     .filter((n) => Number.isFinite(n) && n > 0);
 
   const parsed = settingsSchema.safeParse({

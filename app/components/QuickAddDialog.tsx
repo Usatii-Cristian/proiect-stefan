@@ -48,7 +48,7 @@ export default function QuickAddDialog({
   const [dateKey, setDateKey] = useState(prefill?.dateKey ?? defaults.today);
   const [time, setTime] = useState(prefill?.time ?? nextSlot(defaults.slotMinutes));
   const [duration, setDuration] = useState(
-    prefill?.durationMinutes ?? defaults.slotMinutes,
+    String(prefill?.durationMinutes ?? defaults.slotMinutes),
   );
   const [message, setMessage] = useState(prefill?.message ?? "");
   const [remEmail, setRemEmail] = useState(
@@ -67,7 +67,7 @@ export default function QuickAddDialog({
       setCategoryId("");
     } else {
       setCategoryId(c.id);
-      setDuration(c.defaultDurationMinutes);
+      setDuration(String(c.defaultDurationMinutes));
     }
   }
 
@@ -91,7 +91,7 @@ export default function QuickAddDialog({
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="card w-full max-w-lg rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl">
+      <div className="card max-h-[92dvh] w-full max-w-lg overflow-auto rounded-b-none rounded-t-2xl p-5 shadow-2xl sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-bold">Programare nouă</h2>
           <button
@@ -184,10 +184,12 @@ export default function QuickAddDialog({
               <label className="mt-2 mb-1 block text-xs font-semibold text-ink-soft">Durată (min)</label>
               <input
                 type="number"
-                min={5}
-                step={5}
+                inputMode="decimal"
+                min={0}
+                step="any"
                 value={duration}
-                onChange={(e) => setDuration(Number(e.target.value))}
+                onChange={(e) => setDuration(e.target.value)}
+                placeholder="ex. 30"
                 className="h-11 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand"
               />
             </div>

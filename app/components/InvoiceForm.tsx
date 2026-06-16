@@ -9,6 +9,9 @@ import { IconTrash } from "./icons";
 type Opt = { id: string; name: string };
 type ProjOpt = { id: string; name: string; clientId: string | null };
 type Item = { description: string; quantity: number; unitPrice: number; taxRate: number };
+// În formular ținem valorile numerice ca string ca să permitem golire/zecimale/valori mari.
+type FormItem = { description: string; quantity: string; unitPrice: string; taxRate: string };
+const num = (s: string) => Number(s) || 0;
 
 export type InvoiceInitial = {
   id: string;
@@ -53,10 +56,15 @@ export default function InvoiceForm({
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [terms, setTerms] = useState(initial?.terms ?? "");
-  const [items, setItems] = useState<Item[]>(
+  const [items, setItems] = useState<FormItem[]>(
     initial?.items?.length
-      ? initial.items
-      : [{ description: "", quantity: 1, unitPrice: 0, taxRate: 0 }],
+      ? initial.items.map((it) => ({
+          description: it.description,
+          quantity: String(it.quantity),
+          unitPrice: String(it.unitPrice),
+          taxRate: String(it.taxRate),
+        }))
+      : [{ description: "", quantity: "1", unitPrice: "0", taxRate: "0" }],
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -104,8 +112,8 @@ export default function InvoiceForm({
     let subtotal = 0;
     let taxTotal = 0;
     const lines = items.map((it) => {
-      const ls = round2((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0));
-      const lt = round2((ls * (Number(it.taxRate) || 0)) / 100);
+      const ls = round2(num(it.quantity) * num(it.unitPrice));
+      const lt = round2((ls * num(it.taxRate)) / 100);
       subtotal += ls;
       taxTotal += lt;
       return { lineSubtotal: ls, lineTotal: round2(ls + lt) };
@@ -115,11 +123,11 @@ export default function InvoiceForm({
     return { lines, subtotal, taxTotal, grandTotal: round2(subtotal + taxTotal) };
   }, [items]);
 
-  function setItem(i: number, patch: Partial<Item>) {
+  function setItem(i: number, patch: Partial<FormItem>) {
     setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
   }
   function addItem() {
-    setItems((prev) => [...prev, { description: "", quantity: 1, unitPrice: 0, taxRate: 0 }]);
+    setItems((prev) => [...prev, { description: "", quantity: "1", unitPrice: "0", taxRate: "0" }]);
   }
   function removeItem(i: number) {
     setItems((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
@@ -143,7 +151,12 @@ export default function InvoiceForm({
       taskId: taskId || null,
       notes,
       terms,
-      items: valid,
+      items: valid.map((it) => ({
+        description: it.description,
+        quantity: num(it.quantity),
+        unitPrice: num(it.unitPrice),
+        taxRate: num(it.taxRate),
+      })),
     };
     const res = await saveInvoice(payload);
     setSaving(false);
@@ -214,13 +227,13 @@ export default function InvoiceForm({
               />
               <div className="flex flex-wrap items-end gap-2">
                 <Field label="Cant." w="w-20">
-                  <input type="number" step="any" value={it.quantity} onChange={(e) => setItem(i, { quantity: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
+                  <input type="number" inputMode="decimal" step="any" min={0} value={it.quantity} onChange={(e) => setItem(i, { quantity: e.target.value })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
                 </Field>
                 <Field label="Preț unit." w="w-28">
-                  <input type="number" step="any" value={it.unitPrice} onChange={(e) => setItem(i, { unitPrice: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
+                  <input type="number" inputMode="decimal" step="any" min={0} value={it.unitPrice} onChange={(e) => setItem(i, { unitPrice: e.target.value })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
                 </Field>
                 <Field label="TVA %" w="w-20">
-                  <input type="number" step="any" value={it.taxRate} onChange={(e) => setItem(i, { taxRate: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
+                  <input type="number" inputMode="decimal" step="any" min={0} value={it.taxRate} onChange={(e) => setItem(i, { taxRate: e.target.value })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
                 </Field>
                 <div className="ml-auto text-right">
                   <p className="text-[11px] text-ink-soft">Total rând</p>

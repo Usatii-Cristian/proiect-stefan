@@ -69,7 +69,7 @@ export default function CategoriesManager({ categories }: { categories: Category
 
       <form action={action} className="flex flex-wrap items-end gap-2">
         <input name="name" placeholder="Nume categorie" required className="h-11 flex-1 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand" />
-        <input type="number" name="defaultDurationMinutes" defaultValue={30} min={5} step={5} title="Durată implicită" className="h-11 w-20 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand" />
+        <input type="number" name="defaultDurationMinutes" defaultValue={30} min={0} step="any" inputMode="decimal" title="Durată implicită (min)" className="h-11 w-20 rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand" />
         <input type="color" name="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-11 w-11 rounded-xl border border-[var(--color-line)] bg-transparent" />
         <button type="submit" disabled={pending} className="tap h-11 rounded-xl bg-brand px-4 font-semibold text-white hover:bg-brand-strong disabled:opacity-60">
           Adaugă

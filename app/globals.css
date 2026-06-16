@@ -50,6 +50,8 @@ body {
   font-family: var(--font-sans);
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  /* previne scroll orizontal accidental fără a rupe position: sticky */
+  overflow-x: clip;
 }
 
 /* Scrollbar discret */

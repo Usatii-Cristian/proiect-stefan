@@ -50,7 +50,7 @@ export default function SettingsForm({ settings }: { settings: Settings }) {
         </div>
         <div>
           <label className={label}>Slot (min)</label>
-          <input type="number" name="slotMinutes" min={5} step={5} defaultValue={settings.slotMinutes} className={input} />
+          <input type="number" name="slotMinutes" min={0} step="any" inputMode="decimal" defaultValue={settings.slotMinutes} className={input} />
         </div>
       </div>
 

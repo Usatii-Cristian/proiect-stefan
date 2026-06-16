@@ -177,22 +177,22 @@ export default function TasksManager({
                 {t.dueAt && <span>· scadent {new Date(t.dueAt).toLocaleDateString("ro-RO")}</span>}
               </div>
 
-              <div className="mt-3 flex items-center gap-1.5">
-                {STATUSES.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => changeStatus(t.id, s)}
-                    className={`tap rounded-lg px-2 py-1.5 text-[11px] font-medium ${
-                      t.status === s ? ST[s].cls : "border border-[var(--color-line)] text-ink-soft hover:bg-[var(--color-surface-2)]"
-                    }`}
-                  >
-                    {ST[s].label}
-                  </button>
-                ))}
+              <div className="mt-3 flex items-center gap-2">
+                <select
+                  value={t.status}
+                  onChange={(e) => changeStatus(t.id, e.target.value as Status)}
+                  className="h-9 flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand"
+                >
+                  {STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {ST[s].label}
+                    </option>
+                  ))}
+                </select>
                 {canDelete && (
                   <button
                     onClick={() => remove(t.id)}
-                    className="tap ml-auto grid size-8 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]"
+                    className="tap grid size-9 shrink-0 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]"
                     title="Șterge"
                   >
                     <IconTrash className="size-4" />

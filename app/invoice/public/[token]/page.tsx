@@ -84,7 +84,8 @@ export default async function PublicInvoicePage({
           </section>
 
           {/* Items */}
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] text-sm">
             <thead>
               <tr className="border-y border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-400">
                 <th className="py-2">Descriere</th>
@@ -106,6 +107,7 @@ export default async function PublicInvoicePage({
               ))}
             </tbody>
           </table>
+          </div>
 
           {/* Totals */}
           <div className="mt-4 flex justify-end">

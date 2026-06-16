@@ -35,12 +35,8 @@ export const clientSchema = z.object({
 export const categorySchema = z.object({
   name: z.string().trim().min(1, "Numele categoriei e obligatoriu.").max(60),
   color: z.string().regex(hexColorRe, "Culoare hex invalidă.").default("#6366f1"),
-  defaultDurationMinutes: z.coerce
-    .number()
-    .int()
-    .min(5, "Minim 5 minute.")
-    .max(600)
-    .default(30),
+  // Durată flexibilă: zecimale permise, fără plafon strict; fallback 30 dacă e gol/invalid.
+  defaultDurationMinutes: z.coerce.number().gt(0).max(100000).catch(30),
 });
 
 /**
@@ -62,7 +58,7 @@ export const quickAppointmentSchema = z
     categoryId: z.string().trim().optional().or(z.literal("")),
     dateKey: z.string().regex(dateKeyRe, "Dată invalidă (YYYY-MM-DD)."),
     time: z.string().regex(timeRe, "Oră invalidă (HH:mm)."),
-    durationMinutes: z.coerce.number().int().min(5).max(600).default(30),
+    durationMinutes: z.coerce.number().gt(0).max(100000).catch(30),
     title: z.string().trim().max(120).optional().or(z.literal("")),
     message: z.string().trim().max(2000).optional().or(z.literal("")),
     reminderEmail: z.coerce.boolean().default(false),
@@ -83,7 +79,7 @@ export const rescheduleSchema = z.object({
   id: z.string().min(1),
   dateKey: z.string().regex(dateKeyRe),
   time: z.string().regex(timeRe),
-  durationMinutes: z.coerce.number().int().min(5).max(600).optional(),
+  durationMinutes: z.coerce.number().gt(0).max(100000).optional(),
 });
 
 export const settingsSchema = z.object({
@@ -92,10 +88,10 @@ export const settingsSchema = z.object({
   theme: z.enum(["system", "light", "dark"]).default("system"),
   workdayStart: z.string().regex(timeRe).default("09:00"),
   workdayEnd: z.string().regex(timeRe).default("18:00"),
-  slotMinutes: z.coerce.number().int().min(5).max(240).default(30),
+  slotMinutes: z.coerce.number().gt(0).max(100000).catch(30),
   defaultReminderEmail: z.coerce.boolean().default(false),
   defaultReminderTelegram: z.coerce.boolean().default(true),
-  reminderLeadMinutes: z.array(z.coerce.number().int().min(5)).default([1440, 180]),
+  reminderLeadMinutes: z.array(z.coerce.number().gt(0)).default([1440, 180]),
   emailFromName: z.string().trim().max(80).optional().or(z.literal("")),
   emailFromAddr: z
     .string()

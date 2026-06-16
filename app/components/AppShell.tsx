@@ -143,7 +143,7 @@ export default function AppShell({
           </div>
         )}
 
-        <div className="flex min-h-dvh flex-col">
+        <div className="flex min-h-dvh min-w-0 flex-col">
           {/* Header */}
           <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-[var(--color-line)] bg-[var(--color-app)]/80 px-4 py-3 backdrop-blur">
             <button
