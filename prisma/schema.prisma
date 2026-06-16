@@ -97,6 +97,14 @@ enum ProjectStatus {
   ARCHIVED
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
 // ----------------------------------------------------------------------------
 // Models
 // ----------------------------------------------------------------------------
@@ -131,6 +139,7 @@ model User {
   createdTasks   Task[]        @relation("TaskCreator")
   assignedTasks  Task[]        @relation("TaskAssignee")
   taskActivities TaskActivity[]
+  invoices       Invoice[]
 }
 
 model Team {
@@ -156,6 +165,10 @@ model Project {
   ownerId String @db.ObjectId
   owner   User   @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
+  // Client asociat (opțional) — folosit la facturare (lanț client→proiect→task)
+  clientId String? @db.ObjectId
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+
   // Asignare opțională: toate task-urile noi din proiect merg implicit la acest user/echipă
   assigneeId String? @db.ObjectId
   teamId     String? @db.ObjectId
@@ -164,10 +177,12 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tasks Task[]
+  tasks    Task[]
+  invoices Invoice[]
 
   @@index([ownerId])
   @@index([status])
+  @@index([clientId])
 }
 
 model Task {
@@ -201,6 +216,7 @@ model Task {
   updatedAt DateTime @updatedAt
 
   activities TaskActivity[]
+  invoices   Invoice[]
 
   @@index([assigneeId, status])
   @@index([creatorId, status])
@@ -221,6 +237,78 @@ model TaskActivity {
   createdAt  DateTime    @default(now())
 
   @@index([taskId, createdAt])
+}
+
+// --- Facturare ---
+
+model CompanySettings {
+  id          String  @id @default(auto()) @map("_id") @db.ObjectId
+  singleton   String  @unique @default("main") // garantează o singură înregistrare
+  companyName String  @default("")
+  logo        String? // data URL (base64) sau URL
+  phone       String?
+  email       String?
+  address     String?
+  taxId       String? // IDNO / Tax ID
+  vatNumber   String?
+  bankDetails String? // IBAN / detalii bancare
+  currency    String  @default("MDL")
+  invoicePrefix String @default("INV")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Invoice {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  number    String        @unique
+  status    InvoiceStatus @default(DRAFT)
+  issueDate DateTime      @default(now())
+  dueDate   DateTime?
+
+  // Relații opționale (nullable)
+  clientId  String? @db.ObjectId
+  client    Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  projectId String? @db.ObjectId
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  taskId    String? @db.ObjectId
+  task      Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  notes    String?
+  terms    String?
+  currency String  @default("MDL")
+
+  subtotal   Float @default(0)
+  taxTotal   Float @default(0)
+  grandTotal Float @default(0)
+
+  publicToken String @unique
+
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items InvoiceItem[]
+
+  @@index([status])
+  @@index([clientId])
+  @@index([createdAt])
+}
+
+model InvoiceItem {
+  id           String  @id @default(auto()) @map("_id") @db.ObjectId
+  invoiceId    String  @db.ObjectId
+  invoice      Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description  String
+  quantity     Float   @default(1)
+  unitPrice    Float   @default(0)
+  taxRate      Float   @default(0)
+  lineSubtotal Float   @default(0)
+  lineTotal    Float   @default(0)
+  position     Int     @default(0)
+
+  @@index([invoiceId])
 }
 
 model PushSubscription {
@@ -265,6 +353,8 @@ model Client {
   updatedAt         DateTime @updatedAt
 
   appointments Appointment[]
+  projects     Project[]
+  invoices     Invoice[]
 
   @@index([userId, name])
   @@index([userId, createdAt])

@@ -1,0 +1,287 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { saveInvoice, type InvoicePayload } from "@/app/actions/invoices";
+import { money } from "./invoice-meta";
+import { IconTrash } from "./icons";
+
+type Opt = { id: string; name: string };
+type ProjOpt = { id: string; name: string; clientId: string | null };
+type Item = { description: string; quantity: number; unitPrice: number; taxRate: number };
+
+export type InvoiceInitial = {
+  id: string;
+  status: string;
+  issueDate: string;
+  dueDate: string;
+  clientId: string | null;
+  projectId: string | null;
+  taskId: string | null;
+  notes: string;
+  terms: string;
+  currency: string;
+  items: Item[];
+};
+
+const input =
+  "h-11 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand";
+const label = "mb-1.5 block text-xs font-semibold text-ink-soft";
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export default function InvoiceForm({
+  clients,
+  projects,
+  currency,
+  initial,
+}: {
+  clients: Opt[];
+  projects: ProjOpt[];
+  currency: string;
+  initial?: InvoiceInitial;
+}) {
+  const router = useRouter();
+  const [clientId, setClientId] = useState(initial?.clientId ?? "");
+  const [projectId, setProjectId] = useState(initial?.projectId ?? "");
+  const [taskId, setTaskId] = useState(initial?.taskId ?? "");
+  const [tasks, setTasks] = useState<{ id: string; title: string }[]>([]);
+  const [issueDate, setIssueDate] = useState(initial?.issueDate ?? todayStr());
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [terms, setTerms] = useState(initial?.terms ?? "");
+  const [items, setItems] = useState<Item[]>(
+    initial?.items?.length
+      ? initial.items
+      : [{ description: "", quantity: 1, unitPrice: 0, taxRate: 0 }],
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // Proiectele clientului selectat (sau toate dacă nu e client)
+  const filteredProjects = useMemo(
+    () => (clientId ? projects.filter((p) => p.clientId === clientId) : projects),
+    [clientId, projects],
+  );
+
+  // Încarcă task-urile pentru proiectul curent
+  useEffect(() => {
+    if (!projectId) {
+      setTasks([]);
+      return;
+    }
+    let active = true;
+    fetch(`/api/invoices/tasks?projectId=${projectId}`)
+      .then((r) => r.json())
+      .then((d) => active && setTasks(d.items ?? []))
+      .catch(() => active && setTasks([]));
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+
+  function onClientChange(cid: string) {
+    setClientId(cid);
+    setTaskId("");
+    const owned = projects.filter((p) => p.clientId === cid);
+    // Un singur proiect → selectat automat; altfel resetăm
+    if (cid && owned.length === 1) setProjectId(owned[0].id);
+    else setProjectId("");
+  }
+
+  function onProjectChange(pid: string) {
+    setProjectId(pid);
+    setTaskId("");
+    const proj = projects.find((p) => p.id === pid);
+    if (proj?.clientId) setClientId(proj.clientId); // autofill client
+  }
+
+  // Calcule live
+  const totals = useMemo(() => {
+    let subtotal = 0;
+    let taxTotal = 0;
+    const lines = items.map((it) => {
+      const ls = round2((Number(it.quantity) || 0) * (Number(it.unitPrice) || 0));
+      const lt = round2((ls * (Number(it.taxRate) || 0)) / 100);
+      subtotal += ls;
+      taxTotal += lt;
+      return { lineSubtotal: ls, lineTotal: round2(ls + lt) };
+    });
+    subtotal = round2(subtotal);
+    taxTotal = round2(taxTotal);
+    return { lines, subtotal, taxTotal, grandTotal: round2(subtotal + taxTotal) };
+  }, [items]);
+
+  function setItem(i: number, patch: Partial<Item>) {
+    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+  }
+  function addItem() {
+    setItems((prev) => [...prev, { description: "", quantity: 1, unitPrice: 0, taxRate: 0 }]);
+  }
+  function removeItem(i: number) {
+    setItems((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+  }
+
+  async function submit(status: "DRAFT" | "SENT") {
+    setError("");
+    const valid = items.filter((it) => it.description.trim() !== "");
+    if (valid.length === 0) {
+      setError("Adaugă cel puțin un rând cu descriere.");
+      return;
+    }
+    setSaving(true);
+    const payload: InvoicePayload = {
+      id: initial?.id,
+      status,
+      issueDate,
+      dueDate: dueDate || null,
+      clientId: clientId || null,
+      projectId: projectId || null,
+      taskId: taskId || null,
+      notes,
+      terms,
+      items: valid,
+    };
+    const res = await saveInvoice(payload);
+    setSaving(false);
+    if (!res.ok) {
+      setError(res.error ?? "Eroare la salvare.");
+      return;
+    }
+    router.push("/invoices");
+    router.refresh();
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="card flex flex-col gap-4 p-5">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={label}>Data emiterii</label>
+            <input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} className={input} />
+          </div>
+          <div>
+            <label className={label}>Scadență</label>
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={input} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div>
+            <label className={label}>Client (opțional)</label>
+            <select value={clientId} onChange={(e) => onClientChange(e.target.value)} className={input}>
+              <option value="">—</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={label}>Proiect (opțional)</label>
+            <select value={projectId} onChange={(e) => onProjectChange(e.target.value)} className={input}>
+              <option value="">—</option>
+              {filteredProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={label}>Task (opțional)</label>
+            <select value={taskId} onChange={(e) => setTaskId(e.target.value)} disabled={!projectId} className={`${input} disabled:opacity-50`}>
+              <option value="">{projectId ? "—" : "alege un proiect"}</option>
+              {tasks.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div className="card p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold">Rânduri</h2>
+          <button onClick={addItem} className="tap rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white hover:bg-brand-strong">
+            + Adaugă rând
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {items.map((it, i) => (
+            <div key={i} className="rounded-xl border border-[var(--color-line)] p-3">
+              <input
+                value={it.description}
+                onChange={(e) => setItem(i, { description: e.target.value })}
+                placeholder="Descriere"
+                className="mb-2 h-10 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand"
+              />
+              <div className="flex flex-wrap items-end gap-2">
+                <Field label="Cant." w="w-20">
+                  <input type="number" step="any" value={it.quantity} onChange={(e) => setItem(i, { quantity: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
+                </Field>
+                <Field label="Preț unit." w="w-28">
+                  <input type="number" step="any" value={it.unitPrice} onChange={(e) => setItem(i, { unitPrice: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
+                </Field>
+                <Field label="TVA %" w="w-20">
+                  <input type="number" step="any" value={it.taxRate} onChange={(e) => setItem(i, { taxRate: Number(e.target.value) })} className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface-2)] px-2 text-sm outline-none" />
+                </Field>
+                <div className="ml-auto text-right">
+                  <p className="text-[11px] text-ink-soft">Total rând</p>
+                  <p className="font-semibold tabular-nums">{money(totals.lines[i]?.lineTotal ?? 0, currency)}</p>
+                </div>
+                <button onClick={() => removeItem(i)} className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]" title="Șterge rândul">
+                  <IconTrash className="size-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-col items-end gap-1 border-t border-[var(--color-line)] pt-4 text-sm">
+          <Row k="Subtotal" v={money(totals.subtotal, currency)} />
+          <Row k="TVA total" v={money(totals.taxTotal, currency)} />
+          <div className="flex w-56 justify-between text-base font-bold">
+            <span>Total general</span>
+            <span className="tabular-nums">{money(totals.grandTotal, currency)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="card grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
+        <div>
+          <label className={label}>Notițe (opțional)</label>
+          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm outline-none focus:border-brand" />
+        </div>
+        <div>
+          <label className={label}>Termeni (opțional)</label>
+          <textarea value={terms} onChange={(e) => setTerms(e.target.value)} rows={3} className="w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm outline-none focus:border-brand" />
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-st-cancelled">{error}</p>}
+
+      <div className="flex flex-wrap gap-3">
+        <button onClick={() => submit("DRAFT")} disabled={saving} className="tap h-12 flex-1 rounded-xl border border-[var(--color-line)] font-semibold hover:bg-[var(--color-surface-2)] disabled:opacity-60">
+          {saving ? "Se salvează…" : "Salvează ciornă"}
+        </button>
+        <button onClick={() => submit("SENT")} disabled={saving} className="tap h-12 flex-1 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">
+          {saving ? "Se salvează…" : "Generează factura"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, w, children }: { label: string; w: string; children: React.ReactNode }) {
+  return (
+    <div className={w}>
+      <p className="mb-1 text-[11px] text-ink-soft">{label}</p>
+      {children}
+    </div>
+  );
+}
+function Row({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex w-56 justify-between text-ink-soft">
+      <span>{k}</span>
+      <span className="tabular-nums">{v}</span>
+    </div>
+  );
+}

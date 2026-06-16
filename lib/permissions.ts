@@ -13,6 +13,7 @@ export type PermissionKey =
   | "tasks.close"
   | "projects.manage"
   | "teams.manage"
+  | "invoices.manage"
   | "dashboard.view"
   | "reports.view"
   | "users.manage"
@@ -38,6 +39,7 @@ export const PERMISSION_GROUPS: {
     items: [
       { key: "projects.manage", label: "Gestionare proiecte" },
       { key: "teams.manage", label: "Gestionare echipe" },
+      { key: "invoices.manage", label: "Gestionare facturi" },
     ],
   },
   {

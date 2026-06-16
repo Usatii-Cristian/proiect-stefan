@@ -47,6 +47,6 @@ export function proxy(req: NextRequest) {
 export const config = {
   // Nu rula pe API (își gestionează singure auth), assets, sw, manifest, iconuri.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons|.*\\.(?:png|svg|ico|webmanifest|js|json|txt)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|icons|invoice/public|.*\\.(?:png|svg|ico|webmanifest|js|json|txt)$).*)",
   ],
 };
