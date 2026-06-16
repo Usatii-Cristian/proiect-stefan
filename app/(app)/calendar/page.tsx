@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/dal";
+import { requirePermission } from "@/lib/dal";
 import { getUserTimezone } from "@/lib/queries/settings";
 import { listByDateKey, listByDateKeys } from "@/lib/queries/appointments";
 import {
@@ -22,7 +22,7 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ view?: string; date?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requirePermission("appointments.view");
   const tz = await getUserTimezone(user.id);
   const sp = await searchParams;
   const view = (["day", "week", "month"].includes(sp.view ?? "") ? sp.view : "week") as View;

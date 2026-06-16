@@ -20,35 +20,18 @@ export type CreateTaskInput = {
   projectId?: string | null;
 };
 
+/** Chat Telegram al unui user: întâi cel setat manual, apoi contul linkat prin bot. */
 async function telegramChatFor(userId: string): Promise<string | null> {
-  const acc = await prisma.telegramAccount.findUnique({
-    where: { userId },
-    select: { chatId: true },
+  const u = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { telegramChatId: true, telegramAccount: { select: { chatId: true } } },
   });
-  return acc?.chatId ?? null;
-}
-
-/** Trimite notificarea de task nou către un user (cu butoane de status). */
-async function notifyAssignee(
-  userId: string,
-  taskId: string,
-  title: string,
-): Promise<{ chatId: string; messageId: number } | null> {
-  const chatId = await telegramChatFor(userId);
-  if (!chatId) return null;
-  const res = (await sendMessage(
-    chatId,
-    `🆕 <b>Task nou</b>\n${title}\n\nStatus: <b>${TASK_STATUS_RO.PENDING}</b>`,
-    taskStatusButtons(taskId),
-  )) as { message_id?: number } | null;
-  return res?.message_id ? { chatId, messageId: res.message_id } : null;
+  return u?.telegramChatId || u?.telegramAccount?.chatId || null;
 }
 
 /**
- * Creează un task cu logica de asignare:
- *  - assignee/team explicit au prioritate
- *  - altfel, moștenește asignarea proiectului
- *  - altfel, se asignează creatorului
+ * Creează un task. NU trimite notificări aici (ca o problemă de Telegram să NU
+ * pice crearea). Pentru notificări apelează separat `notifyNewTask`.
  */
 export async function createTask(
   creatorId: string,
@@ -56,6 +39,7 @@ export async function createTask(
   source: CreatedFrom = "WEB",
 ) {
   if (DEMO) return { ok: false as const, error: "Mod demo: conectează o bază de date." };
+  if (!input.title?.trim()) return { ok: false as const, error: "Titlul e obligatoriu." };
 
   let assigneeId = input.assigneeId || null;
   let teamId = input.teamId || null;
@@ -70,7 +54,6 @@ export async function createTask(
       teamId = project.teamId;
     }
   }
-  // Fără nicio asignare ⇒ revine creatorului
   if (!assigneeId && !teamId) assigneeId = creatorId;
 
   const task = await prisma.task.create({
@@ -90,39 +73,57 @@ export async function createTask(
     select: { id: true, title: true },
   });
 
-  // Notificări Telegram
-  const recipients = new Set<string>();
-  if (assigneeId) recipients.add(assigneeId);
-  if (teamId) {
-    const team = await prisma.team.findUnique({
-      where: { id: teamId },
-      select: { memberIds: true },
-    });
-    team?.memberIds.forEach((id) => recipients.add(id));
-  }
-
-  let stored = false;
-  for (const uid of recipients) {
-    const sent = await notifyAssignee(uid, task.id, task.title);
-    // Pentru asignat individual, reținem mesajul ca să-l putem edita
-    if (sent && uid === assigneeId && !stored) {
-      await prisma.task
-        .update({
-          where: { id: task.id },
-          data: { telegramChatId: sent.chatId, telegramMessageId: sent.messageId },
-        })
-        .catch(() => {});
-      stored = true;
-    }
-  }
-
   return { ok: true as const, id: task.id, title: task.title };
 }
 
-/**
- * Schimbă statusul unui task: jurnal + notificare către creator (admin) +
- * actualizarea mesajului din Telegram (dacă există).
- */
+/** Trimite notificarea de task nou către asignat / membrii echipei (best-effort). */
+export async function notifyNewTask(taskId: string): Promise<void> {
+  try {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { id: true, title: true, assigneeId: true, teamId: true },
+    });
+    if (!task) return;
+
+    const recipients = new Set<string>();
+    if (task.assigneeId) recipients.add(task.assigneeId);
+    if (task.teamId) {
+      const team = await prisma.team.findUnique({
+        where: { id: task.teamId },
+        select: { memberIds: true },
+      });
+      team?.memberIds.forEach((id) => recipients.add(id));
+    }
+
+    let stored = false;
+    for (const uid of recipients) {
+      try {
+        const chatId = await telegramChatFor(uid);
+        if (!chatId) continue;
+        const res = (await sendMessage(
+          chatId,
+          `🆕 <b>Task nou</b>\n${escapeHtml(task.title)}\n\nStatus: <b>${TASK_STATUS_RO.PENDING}</b>`,
+          taskStatusButtons(task.id),
+        )) as { message_id?: number } | null;
+        if (res?.message_id && uid === task.assigneeId && !stored) {
+          await prisma.task
+            .update({
+              where: { id: task.id },
+              data: { telegramChatId: chatId, telegramMessageId: res.message_id },
+            })
+            .catch(() => {});
+          stored = true;
+        }
+      } catch {
+        // ignoră eșecul per-destinatar
+      }
+    }
+  } catch {
+    // notificarea nu trebuie să afecteze nimic
+  }
+}
+
+/** Schimbă statusul + jurnal + notificare admin/creator (best-effort). */
 export async function changeTaskStatus(
   taskId: string,
   actorId: string,
@@ -146,35 +147,38 @@ export async function changeTaskStatus(
   if (task.status === newStatus) return { ok: true as const };
 
   await prisma.task.update({ where: { id: taskId }, data: { status: newStatus } });
-  await prisma.taskActivity.create({
-    data: { taskId, userId: actorId, fromStatus: task.status, toStatus: newStatus },
-  });
+  await prisma.taskActivity
+    .create({ data: { taskId, userId: actorId, fromStatus: task.status, toStatus: newStatus } })
+    .catch(() => {});
 
-  // Notifică creatorul (adminul) că s-a schimbat statusul
-  if (task.creatorId !== actorId) {
-    const actor = await prisma.user.findUnique({
-      where: { id: actorId },
-      select: { name: true },
-    });
-    const chat = await telegramChatFor(task.creatorId);
-    if (chat) {
-      await sendMessage(
-        chat,
-        `🔔 <b>${actor?.name ?? "Cineva"}</b> a schimbat task-ul\n«${task.title}»\nstatus: <b>${TASK_STATUS_RO[newStatus]}</b>`,
+  // Notificări best-effort (nu afectează rezultatul)
+  try {
+    if (task.creatorId !== actorId) {
+      const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
+      const chat = await telegramChatFor(task.creatorId);
+      if (chat) {
+        await sendMessage(
+          chat,
+          `🔔 <b>${escapeHtml(actor?.name ?? "Cineva")}</b> a schimbat task-ul\n«${escapeHtml(task.title)}»\nstatus: <b>${TASK_STATUS_RO[newStatus]}</b>`,
+        );
+      }
+    }
+    if (opts.fromTelegram && task.telegramChatId && task.telegramMessageId) {
+      const closed = newStatus === "DONE" || newStatus === "CANCELLED";
+      await editMessageText(
+        task.telegramChatId,
+        task.telegramMessageId,
+        `📋 ${escapeHtml(task.title)}\n\nStatus: <b>${TASK_STATUS_RO[newStatus]}</b>`,
+        closed ? undefined : taskStatusButtons(task.id),
       );
     }
-  }
-
-  // Actualizează mesajul din Telegram al asignatului
-  if (opts.fromTelegram && task.telegramChatId && task.telegramMessageId) {
-    const closed = newStatus === "DONE" || newStatus === "CANCELLED";
-    await editMessageText(
-      task.telegramChatId,
-      task.telegramMessageId,
-      `📋 ${task.title}\n\nStatus: <b>${TASK_STATUS_RO[newStatus]}</b>`,
-      closed ? undefined : taskStatusButtons(task.id),
-    );
+  } catch {
+    // ignoră
   }
 
   return { ok: true as const };
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

@@ -11,7 +11,7 @@ import { IconChevronLeft } from "@/app/components/icons";
 export const dynamic = "force-dynamic";
 
 export default async function NewInvoicePage() {
-  await requirePermission("invoices.manage");
+  await requirePermission("invoices.create");
   const [clients, projects, company] = await Promise.all([
     invoiceClientOptions(),
     invoiceProjectOptions(),

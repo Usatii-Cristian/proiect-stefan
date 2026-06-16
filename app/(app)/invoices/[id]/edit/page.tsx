@@ -17,7 +17,7 @@ export default async function EditInvoicePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission("invoices.manage");
+  await requirePermission("invoices.edit");
   const { id } = await params;
   const [invoice, clients, projects, company] = await Promise.all([
     getInvoice(id),

@@ -19,6 +19,7 @@ type UserRow = {
   role: "ADMIN" | "STAFF";
   isActive: boolean;
   permissions: string[];
+  telegramChatId: string | null;
 };
 
 const input =
@@ -66,6 +67,7 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
               </p>
               <p className="truncate text-xs text-ink-soft">
                 {u.email} · {u.role === "ADMIN" ? "Administrator" : `${u.permissions.length} permisiuni`}
+                {u.telegramChatId ? " · ✈ Telegram" : ""}
               </p>
             </div>
             <button
@@ -129,6 +131,19 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose: () => vo
             required={!user}
             className={input}
           />
+
+          <div>
+            <input
+              name="telegramChatId"
+              defaultValue={user?.telegramChatId ?? ""}
+              placeholder="Telegram chat ID (pentru notificări)"
+              inputMode="numeric"
+              className={input}
+            />
+            <p className="mt-1 text-xs text-ink-soft">
+              Opțional. Userul își află ID-ul scriind <b>/start</b> botului <b>@userinfobot</b> pe Telegram.
+            </p>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <select name="role" value={role} onChange={(e) => setRole(e.target.value as "ADMIN" | "STAFF")} className={input}>

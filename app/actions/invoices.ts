@@ -32,7 +32,8 @@ function toDate(s: string | null): Date | null {
 
 export async function saveInvoice(payload: InvoicePayload): Promise<InvoiceActionResult> {
   const user = await requireUser();
-  if (!can(user, "invoices.manage")) return { ok: false, error: "Fără permisiune." };
+  const needed = payload.id ? "invoices.edit" : "invoices.create";
+  if (!can(user, needed)) return { ok: false, error: "Fără permisiune." };
   if (DEMO) return { ok: false, error: "Mod demo: conectează o bază de date." };
 
   if (!payload.items || payload.items.length === 0) {
@@ -66,7 +67,7 @@ export async function setInvoiceStatus(
   status: string,
 ): Promise<InvoiceActionResult> {
   const user = await requireUser();
-  if (!can(user, "invoices.manage")) return { ok: false, error: "Fără permisiune." };
+  if (!can(user, "invoices.edit")) return { ok: false, error: "Fără permisiune." };
   if (DEMO) return { ok: false, error: "Mod demo." };
   if (!STATUSES.includes(status as InvoiceStatus)) return { ok: false, error: "Status invalid." };
   await prisma.invoice.update({ where: { id }, data: { status: status as InvoiceStatus } });
@@ -76,7 +77,7 @@ export async function setInvoiceStatus(
 
 export async function deleteInvoice(id: string): Promise<void> {
   const user = await requireUser();
-  if (!can(user, "invoices.manage")) return;
+  if (!can(user, "invoices.delete")) return;
   if (DEMO) return;
   await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
   await prisma.invoice.delete({ where: { id } }).catch(() => {});

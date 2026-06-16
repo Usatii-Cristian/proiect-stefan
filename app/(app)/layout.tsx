@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/dal";
+import { can } from "@/lib/permissions";
 import { getSettings } from "@/lib/queries/settings";
 import { listCategories } from "@/lib/queries/categories";
 import { todayKey, tomorrowKey } from "@/lib/date";
@@ -21,10 +22,22 @@ export default async function AppLayout({
 
   const tz = settings.timezone;
 
+  // Permisiuni pentru filtrarea meniului (ascundem ce userul nu poate accesa)
+  const perms: Record<string, boolean> = {
+    "tasks.view": can(user, "tasks.view"),
+    "projects.view": can(user, "projects.view"),
+    "teams.view": can(user, "teams.view"),
+    "invoices.view": can(user, "invoices.view"),
+    "clients.view": can(user, "clients.view"),
+    "appointments.view": can(user, "appointments.view"),
+    "users.manage": can(user, "users.manage"),
+  };
+
   return (
     <AppShell
       userName={user.name}
       demo={DEMO}
+      perms={perms}
       categories={categories}
       defaults={{
         today: todayKey(tz),

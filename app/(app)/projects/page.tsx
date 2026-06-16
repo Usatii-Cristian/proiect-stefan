@@ -8,7 +8,7 @@ import ProjectsManager from "@/app/components/ProjectsManager";
 export const dynamic = "force-dynamic";
 
 export default async function ProjectsPage() {
-  await requirePermission("projects.manage");
+  await requirePermission("projects.view");
   const [projects, users, teams, clients] = await Promise.all([
     listProjects(),
     userOptions(),

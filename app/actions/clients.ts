@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
+import { can } from "@/lib/permissions";
 import { clientSchema } from "@/lib/validation";
 import { DEMO } from "@/lib/demo";
 
@@ -20,6 +21,7 @@ export async function createClient(
   formData: FormData,
 ): Promise<ClientState> {
   const user = await requireUser();
+  if (!can(user, "clients.create")) return { error: "Fără permisiune." };
   if (DEMO) return { error: DEMO_MSG };
   const parsed = clientSchema.safeParse({
     name: formData.get("name"),
@@ -52,6 +54,7 @@ export async function updateClient(
   formData: FormData,
 ): Promise<ClientState> {
   const user = await requireUser();
+  if (!can(user, "clients.edit")) return { error: "Fără permisiune." };
   if (DEMO) return { error: DEMO_MSG };
   const id = String(formData.get("id") ?? "");
   const owned = await prisma.client.findFirst({
@@ -87,6 +90,7 @@ export async function updateClient(
 
 export async function deleteClient(id: string): Promise<void> {
   const user = await requireUser();
+  if (!can(user, "clients.delete")) return;
   if (DEMO) return;
   await prisma.client.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/clients");

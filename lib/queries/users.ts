@@ -9,6 +9,7 @@ export type UserRow = {
   role: "ADMIN" | "STAFF";
   isActive: boolean;
   permissions: string[];
+  telegramChatId: string | null;
 };
 
 const USER_SELECT = {
@@ -18,12 +19,13 @@ const USER_SELECT = {
   role: true,
   isActive: true,
   permissions: true,
+  telegramChatId: true,
 } as const;
 
 export async function listUsers(): Promise<UserRow[]> {
   if (DEMO) {
     return [
-      { id: "demo-user", name: "Cont Demo", email: "demo@local", role: "ADMIN", isActive: true, permissions: [] },
+      { id: "demo-user", name: "Cont Demo", email: "demo@local", role: "ADMIN", isActive: true, permissions: [], telegramChatId: null },
     ];
   }
   return prisma.user.findMany({

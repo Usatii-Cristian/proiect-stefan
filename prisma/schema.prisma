@@ -118,6 +118,8 @@ model User {
   isActive     Boolean  @default(true)
   // Permisiuni individuale (chei din lib/permissions.ts). ADMIN le are pe toate.
   permissions  String[] @default([])
+  // Chat ID Telegram setat manual de admin (pentru notificări), independent de linkarea prin bot
+  telegramChatId String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

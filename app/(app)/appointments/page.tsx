@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/dal";
+import { requirePermission } from "@/lib/dal";
 import { getUserTimezone } from "@/lib/queries/settings";
 import { listByDateKey, listByDateKeys } from "@/lib/queries/appointments";
 import {
@@ -28,7 +28,7 @@ export default async function AppointmentsPage({
 }: {
   searchParams: Promise<{ view?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requirePermission("appointments.view");
   const tz = await getUserTimezone(user.id);
   const { view = "azi" } = await searchParams;
 

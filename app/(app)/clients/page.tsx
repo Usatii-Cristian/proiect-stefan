@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireUser } from "@/lib/dal";
+import { requirePermission } from "@/lib/dal";
 import { listClients } from "@/lib/queries/clients";
 import ClientSearch from "@/app/components/ClientSearch";
 import ClientsList, { type ClientRow } from "@/app/components/ClientsList";
@@ -12,7 +12,7 @@ export default async function ClientsPage({
 }: {
   searchParams: Promise<{ q?: string; page?: string }>;
 }) {
-  const user = await requireUser();
+  const user = await requirePermission("clients.view");
   const { q = "", page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
 

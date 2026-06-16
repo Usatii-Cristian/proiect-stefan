@@ -9,26 +9,38 @@ import { ToastProvider } from "./toast";
 import VoiceButton from "./VoiceButton";
 import type { CategoryLite, QuickDefaults } from "./types";
 
-const NAV: { href: string; label: string; icon: ReactNode }[] = [
+type NavItem = { href: string; label: string; icon: ReactNode; perm?: string };
+
+const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: gridIcon() },
-  { href: "/tasks", label: "Task-uri", icon: checklistIcon() },
-  { href: "/projects", label: "Proiecte", icon: folderIcon() },
-  { href: "/team", label: "Echipă", icon: usersIcon() },
-  { href: "/invoices", label: "Facturi", icon: invoiceIcon() },
-  { href: "/users", label: "Utilizatori", icon: userIcon() },
-  { href: "/appointments", label: "Programări", icon: listIcon() },
-  { href: "/calendar", label: "Calendar", icon: calIcon() },
-  { href: "/kanban", label: "Kanban", icon: kanbanIcon() },
-  { href: "/clients", label: "Clienți", icon: usersIcon() },
+  { href: "/tasks", label: "Task-uri", icon: checklistIcon(), perm: "tasks.view" },
+  { href: "/projects", label: "Proiecte", icon: folderIcon(), perm: "projects.view" },
+  { href: "/team", label: "Echipă", icon: usersIcon(), perm: "teams.view" },
+  { href: "/invoices", label: "Facturi", icon: invoiceIcon(), perm: "invoices.view" },
+  { href: "/users", label: "Utilizatori", icon: userIcon(), perm: "users.manage" },
+  { href: "/appointments", label: "Programări", icon: listIcon(), perm: "appointments.view" },
+  { href: "/calendar", label: "Calendar", icon: calIcon(), perm: "appointments.view" },
+  { href: "/kanban", label: "Kanban", icon: kanbanIcon(), perm: "appointments.view" },
+  { href: "/clients", label: "Clienți", icon: usersIcon(), perm: "clients.view" },
   { href: "/telegram", label: "Telegram", icon: sendIcon() },
   { href: "/settings", label: "Setări", icon: gearIcon() },
 ];
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function visibleNav(perms?: Record<string, boolean>): NavItem[] {
+  return NAV.filter((n) => !n.perm || perms?.[n.perm] !== false);
+}
+
+function NavList({
+  onNavigate,
+  perms,
+}: {
+  onNavigate?: () => void;
+  perms?: Record<string, boolean>;
+}) {
   const path = usePathname();
   return (
     <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
+      {visibleNav(perms).map((item) => {
         const active = path === item.href || path.startsWith(`${item.href}/`);
         return (
           <Link
@@ -88,12 +100,14 @@ function Fab() {
 export default function AppShell({
   userName,
   demo = false,
+  perms,
   categories,
   defaults,
   children,
 }: {
   userName: string;
   demo?: boolean;
+  perms?: Record<string, boolean>;
   categories: CategoryLite[];
   defaults: QuickDefaults;
   children: ReactNode;
@@ -110,7 +124,7 @@ export default function AppShell({
         <aside className="sticky top-0 hidden h-dvh flex-col border-r border-[var(--color-line)] bg-[var(--color-surface)] p-4 lg:flex">
           <Brand />
           <div className="mt-6 flex-1">
-            <NavList />
+            <NavList perms={perms} />
           </div>
           <Account userName={userName} />
         </aside>
@@ -122,7 +136,7 @@ export default function AppShell({
             <aside className="absolute left-0 top-0 flex h-full w-72 flex-col bg-[var(--color-surface)] p-4">
               <Brand />
               <div className="mt-6 flex-1">
-                <NavList onNavigate={() => setDrawer(false)} />
+                <NavList onNavigate={() => setDrawer(false)} perms={perms} />
               </div>
               <Account userName={userName} />
             </aside>
@@ -160,15 +174,15 @@ export default function AppShell({
       <Fab />
 
       {/* Bottom nav mobil */}
-      <BottomNav />
+      <BottomNav perms={perms} />
     </QuickAddProvider>
     </ToastProvider>
   );
 }
 
-function BottomNav() {
+function BottomNav({ perms }: { perms?: Record<string, boolean> }) {
   const path = usePathname();
-  const items = NAV.slice(0, 5);
+  const items = visibleNav(perms).slice(0, 5);
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-30 flex items-stretch border-t border-[var(--color-line)] bg-[var(--color-surface)] lg:hidden">
       {items.map((item) => {

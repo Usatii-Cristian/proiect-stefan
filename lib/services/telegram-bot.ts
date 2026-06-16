@@ -14,7 +14,7 @@ import { listByDateKey, listByDateKeys } from "../queries/appointments";
 import { searchClients } from "../queries/clients";
 import { listCategories } from "../queries/categories";
 import { createAppointment, changeStatus } from "./appointments";
-import { createTask, changeTaskStatus } from "./tasks";
+import { createTask, changeTaskStatus, notifyNewTask } from "./tasks";
 import { transcribeAudio } from "./voice";
 import { todayKey, tomorrowKey, weekKeys, formatTime, humanDay } from "../date";
 import type { AppointmentStatus, TaskStatus } from "@prisma/client";
@@ -252,6 +252,7 @@ async function handleVoice(chatId: number, userId: string, fileId: string) {
     );
 
     if (res.ok) {
+      await notifyNewTask(res.id);
       await sendMessage(chatId, `✅ <b>Task creat din voce</b>\n«${res.title}»`);
     } else {
       await sendMessage(chatId, `❌ ${res.error}`);

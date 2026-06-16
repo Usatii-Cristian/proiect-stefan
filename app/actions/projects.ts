@@ -28,7 +28,7 @@ export async function createProject(
   formData: FormData,
 ): Promise<ProjectState> {
   const user = await requireUser();
-  if (!can(user, "projects.manage")) return { error: "Fără permisiune." };
+  if (!can(user, "projects.create")) return { error: "Fără permisiune." };
   if (DEMO) return { error: "Mod demo." };
   const d = parse(formData);
   if (!d.name) return { error: "Numele e obligatoriu." };
@@ -53,7 +53,7 @@ export async function updateProject(
   formData: FormData,
 ): Promise<ProjectState> {
   const user = await requireUser();
-  if (!can(user, "projects.manage")) return { error: "Fără permisiune." };
+  if (!can(user, "projects.edit")) return { error: "Fără permisiune." };
   if (DEMO) return { error: "Mod demo." };
   const id = String(formData.get("id") ?? "");
   const d = parse(formData);
@@ -75,7 +75,7 @@ export async function updateProject(
 
 export async function deleteProject(id: string): Promise<void> {
   const user = await requireUser();
-  if (!can(user, "projects.manage")) return;
+  if (!can(user, "projects.delete")) return;
   if (DEMO) return;
   // Detașează task-urile (nu le ștergem)
   await prisma.task.updateMany({ where: { projectId: id }, data: { projectId: null } });

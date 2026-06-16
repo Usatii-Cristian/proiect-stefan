@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/dal";
+import { requirePermission } from "@/lib/dal";
 import { getUserTimezone } from "@/lib/queries/settings";
 import { listForKanban } from "@/lib/queries/appointments";
 import { todayKey, addDaysToKey } from "@/lib/date";
@@ -8,7 +8,7 @@ import KanbanBoard from "@/app/components/KanbanBoard";
 export const dynamic = "force-dynamic";
 
 export default async function KanbanPage() {
-  const user = await requireUser();
+  const user = await requirePermission("appointments.view");
   const tz = await getUserTimezone(user.id);
   const today = todayKey(tz);
 

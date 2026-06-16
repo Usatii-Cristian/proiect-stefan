@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const user = await getCurrentUser();
-  if (!user || !can(user, "invoices.manage")) {
+  if (!user || !can(user, "invoices.view")) {
     return NextResponse.json({ items: [] }, { status: 401 });
   }
   const projectId = req.nextUrl.searchParams.get("projectId");

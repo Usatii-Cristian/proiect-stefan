@@ -45,6 +45,7 @@ export async function createUser(
       role,
       isActive,
       permissions: role === "ADMIN" ? [] : parsePerms(formData),
+      telegramChatId: String(formData.get("telegramChatId") ?? "").trim() || null,
     },
     select: { id: true },
   });
@@ -74,6 +75,7 @@ export async function updateUser(
       role,
       isActive,
       permissions: role === "ADMIN" ? [] : parsePerms(formData),
+      telegramChatId: String(formData.get("telegramChatId") ?? "").trim() || null,
       ...(newPassword.length >= 8 ? { passwordHash: await hashPassword(newPassword) } : {}),
     },
   });

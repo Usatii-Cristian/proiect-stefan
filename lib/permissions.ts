@@ -5,15 +5,35 @@
  */
 
 export type PermissionKey =
+  // Task-uri / Tichete / Work Orders
   | "tasks.view"
   | "tasks.create"
   | "tasks.edit"
   | "tasks.delete"
   | "tasks.assign"
   | "tasks.close"
-  | "projects.manage"
+  // Proiecte
+  | "projects.view"
+  | "projects.create"
+  | "projects.edit"
+  | "projects.delete"
+  // Clienți
+  | "clients.view"
+  | "clients.create"
+  | "clients.edit"
+  | "clients.delete"
+  // Facturi
+  | "invoices.view"
+  | "invoices.create"
+  | "invoices.edit"
+  | "invoices.delete"
+  // Programări
+  | "appointments.view"
+  | "appointments.manage"
+  // Echipe
+  | "teams.view"
   | "teams.manage"
-  | "invoices.manage"
+  // Administrare
   | "dashboard.view"
   | "reports.view"
   | "users.manage"
@@ -35,15 +55,48 @@ export const PERMISSION_GROUPS: {
     ],
   },
   {
-    group: "Proiecte & Echipe",
+    group: "Proiecte",
     items: [
-      { key: "projects.manage", label: "Gestionare proiecte" },
-      { key: "teams.manage", label: "Gestionare echipe" },
-      { key: "invoices.manage", label: "Gestionare facturi" },
+      { key: "projects.view", label: "Vizualizare" },
+      { key: "projects.create", label: "Creare" },
+      { key: "projects.edit", label: "Editare" },
+      { key: "projects.delete", label: "Ștergere" },
     ],
   },
   {
-    group: "Rapoarte & Administrare",
+    group: "Clienți",
+    items: [
+      { key: "clients.view", label: "Vizualizare" },
+      { key: "clients.create", label: "Creare" },
+      { key: "clients.edit", label: "Editare" },
+      { key: "clients.delete", label: "Ștergere" },
+    ],
+  },
+  {
+    group: "Facturi",
+    items: [
+      { key: "invoices.view", label: "Vizualizare" },
+      { key: "invoices.create", label: "Creare" },
+      { key: "invoices.edit", label: "Editare" },
+      { key: "invoices.delete", label: "Ștergere" },
+    ],
+  },
+  {
+    group: "Programări",
+    items: [
+      { key: "appointments.view", label: "Vizualizare" },
+      { key: "appointments.manage", label: "Gestionare (creare/editare)" },
+    ],
+  },
+  {
+    group: "Echipe",
+    items: [
+      { key: "teams.view", label: "Vizualizare" },
+      { key: "teams.manage", label: "Gestionare" },
+    ],
+  },
+  {
+    group: "Administrare",
     items: [
       { key: "dashboard.view", label: "Vizualizare dashboard" },
       { key: "reports.view", label: "Vizualizare rapoarte" },

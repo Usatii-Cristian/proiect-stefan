@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
-import { createTask, changeTaskStatus } from "@/lib/services/tasks";
+import { createTask, changeTaskStatus, notifyNewTask } from "@/lib/services/tasks";
 import type { TaskStatus, TaskType, TaskPriority } from "@prisma/client";
 
 export type TaskState = { ok?: boolean; error?: string; id?: string } | undefined;
@@ -53,6 +54,8 @@ export async function createTaskAction(
     "WEB",
   );
   if (!res.ok) return { error: res.error };
+  // Notificare Telegram în fundal — nu blochează și nu poate face crearea să eșueze
+  after(() => notifyNewTask(res.id));
   revalidateTasks();
   return { ok: true, id: res.id };
 }

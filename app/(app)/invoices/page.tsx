@@ -13,7 +13,7 @@ export default async function InvoicesPage({
 }: {
   searchParams: Promise<{ status?: string; q?: string; page?: string }>;
 }) {
-  await requirePermission("invoices.manage");
+  await requirePermission("invoices.view");
   const sp = await searchParams;
   const status = STATUSES.includes(sp.status as InvoiceStatus)
     ? (sp.status as InvoiceStatus)

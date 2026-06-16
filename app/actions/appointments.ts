@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
+import { can } from "@/lib/permissions";
 import {
   quickAppointmentSchema,
   updateStatusSchema,
@@ -30,6 +31,7 @@ export async function createQuickAppointment(
   formData: FormData,
 ): Promise<ApptState> {
   const user = await requireUser();
+  if (!can(user, "appointments.manage")) return { error: "Fără permisiune." };
   const parsed = quickAppointmentSchema.safeParse({
     clientId: formData.get("clientId") ?? "",
     clientName: formData.get("clientName") ?? "",
@@ -79,6 +81,7 @@ export async function createQuickAppointment(
 
 export async function setStatus(id: string, status: string): Promise<ApptState> {
   const user = await requireUser();
+  if (!can(user, "appointments.manage")) return { error: "Fără permisiune." };
   const parsed = updateStatusSchema.safeParse({ id, status });
   if (!parsed.success) return { error: "Status invalid." };
   const res = await changeStatus(user.id, parsed.data.id, parsed.data.status);
@@ -92,6 +95,7 @@ export async function rescheduleAppointment(
   formData: FormData,
 ): Promise<ApptState> {
   const user = await requireUser();
+  if (!can(user, "appointments.manage")) return { error: "Fără permisiune." };
   const parsed = rescheduleSchema.safeParse({
     id: formData.get("id"),
     dateKey: formData.get("dateKey"),
@@ -113,6 +117,7 @@ export async function rescheduleAppointment(
 
 export async function deleteAppointment(id: string): Promise<void> {
   const user = await requireUser();
+  if (!can(user, "appointments.manage")) return;
   if (DEMO) return;
   const owned = await prisma.appointment.findFirst({
     where: { id, userId: user.id },
