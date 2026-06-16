@@ -9,6 +9,7 @@ export type ProjectRow = {
   description: string | null;
   status: ProjectStatus;
   ownerId: string;
+  clientId: string | null;
   assigneeId: string | null;
   teamId: string | null;
   taskCount: number;
@@ -23,6 +24,7 @@ export async function listProjects(): Promise<ProjectRow[]> {
       description: true,
       status: true,
       ownerId: true,
+      clientId: true,
       assigneeId: true,
       teamId: true,
       _count: { select: { tasks: true } },
@@ -35,6 +37,7 @@ export async function listProjects(): Promise<ProjectRow[]> {
     description: r.description,
     status: r.status,
     ownerId: r.ownerId,
+    clientId: r.clientId,
     assigneeId: r.assigneeId,
     teamId: r.teamId,
     taskCount: r._count.tasks,

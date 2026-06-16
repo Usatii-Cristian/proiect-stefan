@@ -14,12 +14,13 @@ const STATUSES: ProjectStatus[] = ["ACTIVE", "ON_HOLD", "DONE", "ARCHIVED"];
 function parse(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
+  const clientId = (formData.get("clientId") as string) || null;
   const assigneeId = (formData.get("assigneeId") as string) || null;
   const teamId = (formData.get("teamId") as string) || null;
   const status = STATUSES.includes(formData.get("status") as ProjectStatus)
     ? (formData.get("status") as ProjectStatus)
     : "ACTIVE";
-  return { name, description, assigneeId, teamId, status };
+  return { name, description, clientId, assigneeId, teamId, status };
 }
 
 export async function createProject(
@@ -37,6 +38,7 @@ export async function createProject(
       description: d.description,
       status: d.status,
       ownerId: user.id,
+      clientId: d.clientId,
       assigneeId: d.assigneeId,
       teamId: d.teamId,
     },
@@ -62,6 +64,7 @@ export async function updateProject(
       name: d.name,
       description: d.description,
       status: d.status,
+      clientId: d.clientId,
       assigneeId: d.assigneeId,
       teamId: d.teamId,
     },

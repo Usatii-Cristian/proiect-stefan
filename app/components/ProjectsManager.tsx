@@ -16,6 +16,7 @@ type Project = {
   name: string;
   description: string | null;
   status: "ACTIVE" | "ON_HOLD" | "DONE" | "ARCHIVED";
+  clientId: string | null;
   assigneeId: string | null;
   teamId: string | null;
   taskCount: number;
@@ -29,10 +30,12 @@ export default function ProjectsManager({
   projects,
   users,
   teams,
+  clients,
 }: {
   projects: Project[];
   users: Opt[];
   teams: Opt[];
+  clients: Opt[];
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -70,6 +73,7 @@ export default function ProjectsManager({
                 <p className="truncate font-semibold">{p.name}</p>
                 <p className="truncate text-xs text-ink-soft">
                   {STATUS_RO[p.status]} · {p.taskCount} task-uri
+                  {p.clientId && ` · client ${nameOf(p.clientId, clients) ?? "?"}`}
                   {p.assigneeId && ` · → ${nameOf(p.assigneeId, users) ?? "?"}`}
                   {p.teamId && ` · echipă ${nameOf(p.teamId, teams) ?? "?"}`}
                 </p>
@@ -90,6 +94,7 @@ export default function ProjectsManager({
           project={dialog.project}
           users={users}
           teams={teams}
+          clients={clients}
           onClose={() => setDialog({ open: false, project: null })}
         />
       )}
@@ -101,11 +106,13 @@ function ProjectDialog({
   project,
   users,
   teams,
+  clients,
   onClose,
 }: {
   project: Project | null;
   users: Opt[];
   teams: Opt[];
+  clients: Opt[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -137,6 +144,13 @@ function ProjectDialog({
             <option value="DONE">Finalizat</option>
             <option value="ARCHIVED">Arhivat</option>
           </select>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-ink-soft">Client (opțional — pentru facturare)</label>
+            <select name="clientId" defaultValue={project?.clientId ?? ""} className={input}>
+              <option value="">Fără client</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
           <p className="text-xs text-ink-soft">Asignarea proiectului se moștenește automat de task-urile noi:</p>
           <div className="grid grid-cols-2 gap-3">
             <select name="assigneeId" defaultValue={project?.assigneeId ?? ""} className={input}>
