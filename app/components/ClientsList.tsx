@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { deleteClient } from "@/app/actions/clients";
 import ClientDialog, { type ClientEdit } from "./ClientDialog";
+import { useToast } from "./toast";
 import { IconPencil, IconTrash } from "./icons";
 
 export type ClientRow = {
@@ -18,8 +18,9 @@ export type ClientRow = {
 };
 
 export default function ClientsList({ items }: { items: ClientRow[] }) {
-  const router = useRouter();
-  const [, start] = useTransition();
+  const toast = useToast();
+  const [rows, setRows] = useState(items);
+  useEffect(() => setRows(items), [items]);
   const [dialog, setDialog] = useState<{ open: boolean; client: ClientEdit | null }>({
     open: false,
     client: null,
@@ -27,10 +28,14 @@ export default function ClientsList({ items }: { items: ClientRow[] }) {
 
   function remove(id: string) {
     if (!confirm("Ștergi clientul? Programările lui se șterg și ele.")) return;
-    start(async () => {
-      await deleteClient(id);
-      router.refresh();
-    });
+    const prev = rows;
+    setRows((r) => r.filter((c) => c.id !== id)); // optimistic
+    deleteClient(id)
+      .then(() => toast.success("Client șters"))
+      .catch(() => {
+        setRows(prev);
+        toast.error("Ștergerea a eșuat");
+      });
   }
 
   return (
@@ -42,13 +47,13 @@ export default function ClientsList({ items }: { items: ClientRow[] }) {
         + Client nou
       </button>
 
-      {items.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">
           Niciun client găsit.
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {items.map((c) => (
+          {rows.map((c) => (
             <div key={c.id} className="card flex items-center gap-3 p-3">
               <div className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
                 {c.name.slice(0, 1).toUpperCase()}

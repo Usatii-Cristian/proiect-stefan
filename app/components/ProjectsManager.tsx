@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createProject,
@@ -8,6 +8,7 @@ import {
   deleteProject,
   type ProjectState,
 } from "@/app/actions/projects";
+import { useToast } from "./toast";
 import { IconX, IconPencil, IconTrash } from "./icons";
 
 type Opt = { id: string; name: string };
@@ -37,8 +38,9 @@ export default function ProjectsManager({
   teams: Opt[];
   clients: Opt[];
 }) {
-  const router = useRouter();
-  const [, start] = useTransition();
+  const toast = useToast();
+  const [rows, setRows] = useState(projects);
+  useEffect(() => setRows(projects), [projects]);
   const [dialog, setDialog] = useState<{ open: boolean; project: Project | null }>({
     open: false,
     project: null,
@@ -48,10 +50,14 @@ export default function ProjectsManager({
 
   function remove(id: string) {
     if (!confirm("Ștergi proiectul? Task-urile rămân, dar fără proiect.")) return;
-    start(async () => {
-      await deleteProject(id);
-      router.refresh();
-    });
+    const prev = rows;
+    setRows((r) => r.filter((p) => p.id !== id)); // optimistic
+    deleteProject(id)
+      .then(() => toast.success("Proiect șters"))
+      .catch(() => {
+        setRows(prev);
+        toast.error("Ștergerea a eșuat");
+      });
   }
 
   return (
@@ -63,11 +69,11 @@ export default function ProjectsManager({
         + Proiect nou
       </button>
 
-      {projects.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">Niciun proiect.</div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {projects.map((p) => (
+          {rows.map((p) => (
             <div key={p.id} className="card flex items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{p.name}</p>

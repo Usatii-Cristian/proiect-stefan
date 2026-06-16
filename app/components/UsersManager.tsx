@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createUser,
@@ -9,6 +9,7 @@ import {
   type UserState,
 } from "@/app/actions/users";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
+import { useToast } from "./toast";
 import { IconX, IconPencil } from "./icons";
 
 type UserRow = {
@@ -24,18 +25,23 @@ const input =
   "h-11 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand";
 
 export default function UsersManager({ users }: { users: UserRow[] }) {
-  const router = useRouter();
-  const [, start] = useTransition();
+  const toast = useToast();
+  const [rows, setRows] = useState(users);
+  useEffect(() => setRows(users), [users]);
   const [dialog, setDialog] = useState<{ open: boolean; user: UserRow | null }>({
     open: false,
     user: null,
   });
 
   function toggle(u: UserRow) {
-    start(async () => {
-      await toggleUserActive(u.id, !u.isActive);
-      router.refresh();
-    });
+    const next = !u.isActive;
+    setRows((r) => r.map((x) => (x.id === u.id ? { ...x, isActive: next } : x))); // optimistic
+    toggleUserActive(u.id, next)
+      .then(() => toast.success(next ? "Utilizator activat" : "Utilizator dezactivat"))
+      .catch(() => {
+        setRows((r) => r.map((x) => (x.id === u.id ? { ...x, isActive: !next } : x)));
+        toast.error("Acțiunea a eșuat");
+      });
   }
 
   return (
@@ -48,7 +54,7 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
       </button>
 
       <div className="flex flex-col gap-2.5">
-        {users.map((u) => (
+        {rows.map((u) => (
           <div key={u.id} className="card flex items-center gap-3 p-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
               {u.name.slice(0, 1).toUpperCase()}

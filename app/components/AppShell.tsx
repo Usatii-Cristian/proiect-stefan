@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
 import { QuickAddProvider, useQuickAdd } from "./quick-add-context";
+import { ToastProvider } from "./toast";
 import VoiceButton from "./VoiceButton";
 import type { CategoryLite, QuickDefaults } from "./types";
 
@@ -102,6 +103,7 @@ export default function AppShell({
   const current = NAV.find((n) => path.startsWith(n.href))?.label ?? "Programări";
 
   return (
+    <ToastProvider>
     <QuickAddProvider categories={categories} defaults={defaults}>
       <div className="lg:grid lg:grid-cols-[260px_1fr]">
         {/* Sidebar desktop */}
@@ -160,6 +162,7 @@ export default function AppShell({
       {/* Bottom nav mobil */}
       <BottomNav />
     </QuickAddProvider>
+    </ToastProvider>
   );
 }
 

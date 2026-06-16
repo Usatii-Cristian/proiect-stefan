@@ -8,6 +8,7 @@ import {
   deleteTask,
   type TaskState,
 } from "@/app/actions/tasks";
+import { useToast } from "./toast";
 import { IconTrash, IconX, IconChevronLeft, IconChevronRight } from "./icons";
 
 type Opt = { id: string; name: string };
@@ -65,6 +66,7 @@ export default function TasksManager({
   canDelete: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [open, setOpen] = useState(false);
   // Lista locală pentru actualizări optimiste (butoane instant, fără refresh).
   const [tasks, setTasks] = useState(items);
@@ -95,19 +97,28 @@ export default function TasksManager({
   }, [search]);
 
   function changeStatus(id: string, next: Status) {
-    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: next } : t)));
+    const prev = tasks;
+    setTasks((cur) => cur.map((t) => (t.id === id ? { ...t, status: next } : t)));
     setTaskStatus(id, next).then((res) => {
       if (res?.error) {
-        setTasks(items); // revert
-        alert(res.error);
+        setTasks(prev); // revert
+        toast.error(res.error);
+      } else {
+        toast.success(`Status: ${ST[next].label}`);
       }
     });
   }
 
   function remove(id: string) {
     if (!confirm("Ștergi task-ul?")) return;
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    deleteTask(id).catch(() => setTasks(items));
+    const prev = tasks;
+    setTasks((cur) => cur.filter((t) => t.id !== id));
+    deleteTask(id)
+      .then(() => toast.success("Task șters"))
+      .catch(() => {
+        setTasks(prev);
+        toast.error("Ștergerea a eșuat");
+      });
   }
 
   return (

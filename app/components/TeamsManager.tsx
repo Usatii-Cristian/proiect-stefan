@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTeam,
@@ -8,6 +8,7 @@ import {
   deleteTeam,
   type TeamState,
 } from "@/app/actions/teams";
+import { useToast } from "./toast";
 import { IconX, IconPencil, IconTrash } from "./icons";
 
 type Opt = { id: string; name: string };
@@ -23,8 +24,9 @@ const input =
   "h-11 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand";
 
 export default function TeamsManager({ teams, users }: { teams: Team[]; users: Opt[] }) {
-  const router = useRouter();
-  const [, start] = useTransition();
+  const toast = useToast();
+  const [rows, setRows] = useState(teams);
+  useEffect(() => setRows(teams), [teams]);
   const [dialog, setDialog] = useState<{ open: boolean; team: Team | null }>({
     open: false,
     team: null,
@@ -32,10 +34,14 @@ export default function TeamsManager({ teams, users }: { teams: Team[]; users: O
 
   function remove(id: string) {
     if (!confirm("Ștergi echipa?")) return;
-    start(async () => {
-      await deleteTeam(id);
-      router.refresh();
-    });
+    const prev = rows;
+    setRows((r) => r.filter((t) => t.id !== id)); // optimistic
+    deleteTeam(id)
+      .then(() => toast.success("Echipă ștearsă"))
+      .catch(() => {
+        setRows(prev);
+        toast.error("Ștergerea a eșuat");
+      });
   }
 
   return (
@@ -47,11 +53,11 @@ export default function TeamsManager({ teams, users }: { teams: Team[]; users: O
         + Echipă nouă
       </button>
 
-      {teams.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">Nicio echipă.</div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {teams.map((t) => (
+          {rows.map((t) => (
             <div key={t.id} className="card flex items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{t.name}</p>

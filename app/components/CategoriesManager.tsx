@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createCategory,
@@ -8,11 +8,14 @@ import {
   type SettingsState,
 } from "@/app/actions/settings";
 import type { CategoryLite } from "./types";
+import { useToast } from "./toast";
 import { IconX } from "./icons";
 
 export default function CategoriesManager({ categories }: { categories: CategoryLite[] }) {
   const router = useRouter();
-  const [, start] = useTransition();
+  const toast = useToast();
+  const [rows, setRows] = useState(categories);
+  useEffect(() => setRows(categories), [categories]);
   const [state, action, pending] = useActionState<SettingsState, FormData>(
     createCategory,
     undefined,
@@ -20,14 +23,23 @@ export default function CategoriesManager({ categories }: { categories: Category
   const [color, setColor] = useState("#0d9488");
 
   useEffect(() => {
-    if (state?.ok) router.refresh();
-  }, [state, router]);
+    if (state?.ok) {
+      toast.success("Categorie adăugată");
+      router.refresh();
+    } else if (state?.error) {
+      toast.error(state.error);
+    }
+  }, [state, router, toast]);
 
   function remove(id: string) {
-    start(async () => {
-      await deleteCategory(id);
-      router.refresh();
-    });
+    const prev = rows;
+    setRows((r) => r.filter((c) => c.id !== id)); // optimistic
+    deleteCategory(id)
+      .then(() => toast.success("Categorie ștearsă"))
+      .catch(() => {
+        setRows(prev);
+        toast.error("Ștergerea a eșuat");
+      });
   }
 
   return (
@@ -35,7 +47,7 @@ export default function CategoriesManager({ categories }: { categories: Category
       <h2 className="text-base font-bold">Categorii</h2>
 
       <div className="flex flex-wrap gap-2">
-        {categories.map((c) => (
+        {rows.map((c) => (
           <span
             key={c.id}
             className="flex items-center gap-2 rounded-full border border-[var(--color-line)] py-1.5 pl-3 pr-1.5 text-sm"
@@ -52,7 +64,7 @@ export default function CategoriesManager({ categories }: { categories: Category
             </button>
           </span>
         ))}
-        {categories.length === 0 && <p className="text-sm text-ink-soft">Nicio categorie.</p>}
+        {rows.length === 0 && <p className="text-sm text-ink-soft">Nicio categorie.</p>}
       </div>
 
       <form action={action} className="flex flex-wrap items-end gap-2">

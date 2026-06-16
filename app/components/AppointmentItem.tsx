@@ -1,39 +1,55 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { setStatus, deleteAppointment } from "@/app/actions/appointments";
+import { useState } from "react";
+import { setStatus as setStatusAction, deleteAppointment } from "@/app/actions/appointments";
 import { STATUS_META } from "./status";
+import { useToast } from "./toast";
 import { IconCheck, IconCheckCircle, IconDots, IconMail, IconSend } from "./icons";
 import type { ApptStatus, ApptVM } from "./types";
 
 const actionBtn =
-  "tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-sm hover:bg-[var(--color-surface-2)]";
+  "tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-sm hover:bg-[var(--color-surface-2)] disabled:opacity-50";
 
 export default function AppointmentItem({ appt }: { appt: ApptVM }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const toast = useToast();
+  const [status, setStatus] = useState<ApptStatus>(appt.status);
+  const [removed, setRemoved] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState(false);
-  const meta = STATUS_META[appt.status];
+  const meta = STATUS_META[status];
 
-  function change(status: ApptStatus) {
-    start(async () => {
-      await setStatus(appt.id, status);
-      router.refresh();
-    });
+  async function change(next: ApptStatus) {
     setMenu(false);
+    if (next === status) return;
+    const prev = status;
+    setStatus(next); // optimistic
+    setBusy(true);
+    const res = await setStatusAction(appt.id, next);
+    setBusy(false);
+    if (res?.error) {
+      setStatus(prev); // rollback
+      toast.error(res.error);
+    } else {
+      toast.success(`Status: ${STATUS_META[next].label}`);
+    }
   }
 
-  function remove() {
+  async function remove() {
     if (!confirm("Ștergi programarea?")) return;
-    start(async () => {
+    setRemoved(true); // optimistic
+    try {
       await deleteAppointment(appt.id);
-      router.refresh();
-    });
+      toast.success("Programare ștearsă");
+    } catch {
+      setRemoved(false);
+      toast.error("Ștergerea a eșuat");
+    }
   }
+
+  if (removed) return null;
 
   return (
-    <div className={`card flex items-center gap-3 p-3 ${pending ? "opacity-60" : ""}`}>
+    <div className={`card flex items-center gap-3 p-3 ${busy ? "opacity-60" : ""}`}>
       <div className="flex w-14 shrink-0 flex-col items-center">
         <span className="text-base font-bold tabular-nums">{appt.time}</span>
         <span className="text-[11px] text-ink-soft tabular-nums">{appt.endTime}</span>
@@ -63,21 +79,17 @@ export default function AppointmentItem({ appt }: { appt: ApptVM }) {
       </div>
 
       <div className="relative flex items-center gap-1.5">
-        {appt.status !== "CONFIRMED" && appt.status !== "DONE" && (
-          <button title="Confirmă" onClick={() => change("CONFIRMED")} className={actionBtn}>
+        {status !== "CONFIRMED" && status !== "DONE" && (
+          <button title="Confirmă" disabled={busy} onClick={() => change("CONFIRMED")} className={actionBtn}>
             <IconCheck className="size-4" />
           </button>
         )}
-        {appt.status !== "DONE" && (
-          <button title="Finalizat" onClick={() => change("DONE")} className={`${actionBtn} text-st-done`}>
+        {status !== "DONE" && (
+          <button title="Finalizat" disabled={busy} onClick={() => change("DONE")} className={`${actionBtn} text-st-done`}>
             <IconCheckCircle className="size-4" />
           </button>
         )}
-        <button
-          onClick={() => setMenu((m) => !m)}
-          className={actionBtn}
-          title="Mai mult"
-        >
+        <button onClick={() => setMenu((m) => !m)} disabled={busy} className={actionBtn} title="Mai mult">
           <IconDots className="size-4" />
         </button>
         {menu && (

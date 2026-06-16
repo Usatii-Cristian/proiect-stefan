@@ -11,6 +11,7 @@ import {
   fmtDate,
   type InvoiceStatusKey,
 } from "./invoice-meta";
+import { useToast } from "./toast";
 import { IconTrash, IconChevronLeft, IconChevronRight } from "./icons";
 
 type Row = {
@@ -41,6 +42,7 @@ export default function InvoicesList({
   origin: string;
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [rows, setRows] = useState(items);
   useEffect(() => setRows(items), [items]);
   const [search, setSearch] = useState(q);
@@ -67,19 +69,28 @@ export default function InvoicesList({
   }, [search]);
 
   function changeStatus(id: string, s: InvoiceStatusKey) {
-    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status: s } : r)));
+    const prev = rows;
+    setRows((cur) => cur.map((r) => (r.id === id ? { ...r, status: s } : r)));
     setInvoiceStatus(id, s).then((res) => {
       if (!res.ok) {
-        setRows(items);
-        alert(res.error);
+        setRows(prev);
+        toast.error(res.error ?? "Eroare");
+      } else {
+        toast.success(`Status: ${INVOICE_STATUS[s].label}`);
       }
     });
   }
 
   function remove(id: string) {
     if (!confirm("Ștergi factura?")) return;
-    setRows((prev) => prev.filter((r) => r.id !== id));
-    deleteInvoice(id);
+    const prev = rows;
+    setRows((cur) => cur.filter((r) => r.id !== id));
+    deleteInvoice(id)
+      .then(() => toast.success("Factură ștearsă"))
+      .catch(() => {
+        setRows(prev);
+        toast.error("Ștergerea a eșuat");
+      });
   }
 
   async function copyLink(token: string) {

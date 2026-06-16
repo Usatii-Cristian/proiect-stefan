@@ -1,28 +1,34 @@
 "use client";
 
-import { useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { setStatus } from "@/app/actions/appointments";
+import { useEffect, useState } from "react";
+import { setStatus as setStatusAction } from "@/app/actions/appointments";
 import { KANBAN_COLUMNS, STATUS_META } from "./status";
+import { useToast } from "./toast";
 import type { ApptStatus, ApptVM } from "./types";
 
 export default function KanbanBoard({ items }: { items: ApptVM[] }) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
+  const toast = useToast();
+  const [list, setList] = useState(items);
+  useEffect(() => setList(items), [items]);
 
   const byStatus = new Map<ApptStatus, ApptVM[]>();
   for (const col of KANBAN_COLUMNS) byStatus.set(col.status, []);
-  for (const it of items) byStatus.get(it.status)?.push(it);
+  for (const it of list) byStatus.get(it.status)?.push(it);
 
-  function move(id: string, status: ApptStatus) {
-    start(async () => {
-      await setStatus(id, status);
-      router.refresh();
-    });
+  async function move(id: string, status: ApptStatus) {
+    const prev = list;
+    setList((cur) => cur.map((t) => (t.id === id ? { ...t, status } : t))); // optimistic
+    const res = await setStatusAction(id, status);
+    if (res?.error) {
+      setList(prev); // rollback
+      toast.error(res.error);
+    } else {
+      toast.success(`Mutat în „${STATUS_META[status].label}"`);
+    }
   }
 
   return (
-    <div className={`flex gap-3 overflow-x-auto pb-4 ${pending ? "opacity-70" : ""}`}>
+    <div className="flex gap-3 overflow-x-auto pb-4">
       {KANBAN_COLUMNS.map((col) => {
         const colItems = byStatus.get(col.status) ?? [];
         const meta = STATUS_META[col.status];
