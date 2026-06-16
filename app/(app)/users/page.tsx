@@ -8,7 +8,7 @@ export default async function UsersPage() {
   await requirePermission("users.manage");
   const users = await listUsers();
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <UsersManager users={users} />
     </div>
   );

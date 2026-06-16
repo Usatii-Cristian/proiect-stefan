@@ -32,17 +32,19 @@ export default function ProjectsManager({
   users,
   teams,
   clients,
+  openCreate,
 }: {
   projects: Project[];
   users: Opt[];
   teams: Opt[];
   clients: Opt[];
+  openCreate?: boolean;
 }) {
   const toast = useToast();
   const [rows, setRows] = useState(projects);
   useEffect(() => setRows(projects), [projects]);
   const [dialog, setDialog] = useState<{ open: boolean; project: Project | null }>({
-    open: false,
+    open: openCreate ? true : false,
     project: null,
   });
 

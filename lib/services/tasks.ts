@@ -6,6 +6,8 @@ import {
   editMessageText,
   taskStatusButtons,
   TASK_STATUS_RO,
+  TASK_TYPE_RO,
+  TASK_PRIORITY_RO,
 } from "../telegram";
 import type { TaskStatus, TaskType, TaskPriority, CreatedFrom } from "@prisma/client";
 
@@ -81,7 +83,16 @@ export async function notifyNewTask(taskId: string): Promise<void> {
   try {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      select: { id: true, title: true, assigneeId: true, teamId: true },
+      select: {
+        id: true,
+        title: true,
+        type: true,
+        priority: true,
+        assigneeId: true,
+        teamId: true,
+        assignee: { select: { name: true } },
+        project: { select: { name: true } },
+      },
     });
     if (!task) return;
 
@@ -95,16 +106,25 @@ export async function notifyNewTask(taskId: string): Promise<void> {
       team?.memberIds.forEach((id) => recipients.add(id));
     }
 
+    const lines = [
+      `🆕 <b>${TASK_TYPE_RO[task.type]} nou</b>`,
+      escapeHtml(task.title),
+      "",
+      `⚑ Prioritate: <b>${TASK_PRIORITY_RO[task.priority]}</b>`,
+    ];
+    if (task.assignee?.name) lines.push(`👤 Asignat: ${escapeHtml(task.assignee.name)}`);
+    if (task.project?.name) lines.push(`📁 Proiect: ${escapeHtml(task.project.name)}`);
+    lines.push(`Status: <b>${TASK_STATUS_RO.PENDING}</b>`);
+    const text = lines.join("\n");
+
     let stored = false;
     for (const uid of recipients) {
       try {
         const chatId = await telegramChatFor(uid);
         if (!chatId) continue;
-        const res = (await sendMessage(
-          chatId,
-          `🆕 <b>Task nou</b>\n${escapeHtml(task.title)}\n\nStatus: <b>${TASK_STATUS_RO.PENDING}</b>`,
-          taskStatusButtons(task.id),
-        )) as { message_id?: number } | null;
+        const res = (await sendMessage(chatId, text, taskStatusButtons(task.id))) as {
+          message_id?: number;
+        } | null;
         if (res?.message_id && uid === task.assigneeId && !stored) {
           await prisma.task
             .update({

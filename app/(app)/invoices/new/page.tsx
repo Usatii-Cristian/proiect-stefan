@@ -19,7 +19,7 @@ export default async function NewInvoicePage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <Link href="/invoices" className="mb-4 inline-flex items-center gap-1 text-sm text-ink-soft hover:text-ink">
         <IconChevronLeft className="size-4" /> Înapoi la facturi
       </Link>

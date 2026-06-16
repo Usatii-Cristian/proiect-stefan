@@ -58,17 +58,17 @@ export default async function PublicInvoicePage({
           </header>
 
           {/* Meta + client */}
-          <section className="grid grid-cols-2 gap-6 py-6 text-sm">
+          <section className="flex items-start justify-between gap-6 py-6 text-sm">
             <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">Facturat către</p>
-              {invoice.client ? (
-                <div className="text-zinc-700">
-                  <p className="font-semibold text-zinc-900">{invoice.client.name}</p>
-                  {invoice.client.phone && <p>{invoice.client.phone}</p>}
-                  {invoice.client.email && <p>{invoice.client.email}</p>}
-                </div>
-              ) : (
-                <p className="text-zinc-400">—</p>
+              {invoice.client && (
+                <>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-400">Facturat către</p>
+                  <div className="text-zinc-700">
+                    <p className="font-semibold text-zinc-900">{invoice.client.name}</p>
+                    {invoice.client.phone && <p>{invoice.client.phone}</p>}
+                    {invoice.client.email && <p>{invoice.client.email}</p>}
+                  </div>
+                </>
               )}
               {(invoice.project || invoice.task) && (
                 <p className="mt-2 text-xs text-zinc-500">
@@ -77,9 +77,9 @@ export default async function PublicInvoicePage({
                 </p>
               )}
             </div>
-            <div className="text-right">
+            <div className="shrink-0 text-right">
               <Meta k="Data emiterii" v={fmtDate(invoice.issueDate)} />
-              <Meta k="Scadență" v={fmtDate(invoice.dueDate)} />
+              {invoice.dueDate && <Meta k="Scadență" v={fmtDate(invoice.dueDate)} />}
             </div>
           </section>
 

@@ -19,7 +19,7 @@ export default async function KanbanPage() {
   const items = (await listForKanban(user.id, keys)).map((a) => toVM(a, tz));
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="w-full">
       <p className="mb-4 text-sm text-ink-soft">
         Programări din ultimele 7 zile și următoarele 30 — mută între coloane.
       </p>

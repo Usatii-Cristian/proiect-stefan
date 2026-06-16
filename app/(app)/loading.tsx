@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <div className="mx-auto max-w-4xl animate-pulse">
+    <div className="w-full animate-pulse">
       {/* taburi / filtre */}
       <div className="mb-4 flex gap-2">
         <div className="h-9 w-24 rounded-full bg-[var(--color-surface-2)]" />

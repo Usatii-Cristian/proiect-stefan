@@ -29,7 +29,7 @@ export default async function CalendarPage({
   const anchor = /^\d{4}-\d{2}-\d{2}$/.test(sp.date ?? "") ? sp.date! : todayKey(tz);
 
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="w-full">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex gap-1 rounded-full bg-[var(--color-surface-2)] p-1">
           {(["day", "week", "month"] as View[]).map((v) => (

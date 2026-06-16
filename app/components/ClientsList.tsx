@@ -17,12 +17,18 @@ export type ClientRow = {
   lastAppointmentAt: string | null;
 };
 
-export default function ClientsList({ items }: { items: ClientRow[] }) {
+export default function ClientsList({
+  items,
+  openCreate,
+}: {
+  items: ClientRow[];
+  openCreate?: boolean;
+}) {
   const toast = useToast();
   const [rows, setRows] = useState(items);
   useEffect(() => setRows(items), [items]);
   const [dialog, setDialog] = useState<{ open: boolean; client: ClientEdit | null }>({
-    open: false,
+    open: openCreate ? true : false,
     client: null,
   });
 

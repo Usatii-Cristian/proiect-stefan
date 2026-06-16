@@ -24,7 +24,7 @@ export default async function InvoicesPage({
   const result = await listInvoices({ status, search: q, page });
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="w-full">
       <InvoicesList
         items={result.items}
         hasMore={result.hasMore}

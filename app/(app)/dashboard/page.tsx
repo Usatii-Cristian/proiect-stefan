@@ -1,95 +1,70 @@
+import Link from "next/link";
 import { requireUser } from "@/lib/dal";
-import { getUserTimezone } from "@/lib/queries/settings";
-import {
-  dayStats,
-  listByDateKey,
-  nextAppointment,
-} from "@/lib/queries/appointments";
-import { todayKey, humanDay } from "@/lib/date";
-import { toVM } from "@/lib/view";
-import AppointmentItem from "@/app/components/AppointmentItem";
-import OpenQuickAddButton from "@/app/components/OpenQuickAddButton";
+import { dashboardStats, listTasks } from "@/lib/queries/tasks";
 
 export const dynamic = "force-dynamic";
 
+const STATUS_RO: Record<string, { label: string; dot: string }> = {
+  PENDING: { label: "În așteptare", dot: "bg-st-new" },
+  READ: { label: "Citit", dot: "bg-st-confirmed" },
+  IN_PROGRESS: { label: "În lucru", dot: "bg-st-progress" },
+  ON_HOLD: { label: "Suspendat", dot: "bg-st-noshow" },
+  BLOCKED: { label: "Blocat", dot: "bg-st-cancelled" },
+  DONE: { label: "Finalizat", dot: "bg-st-done" },
+  CANCELLED: { label: "Anulat", dot: "bg-st-cancelled" },
+};
+
 export default async function DashboardPage() {
   const user = await requireUser();
-  const tz = await getUserTimezone(user.id);
-  const today = todayKey(tz);
-
-  const [stats, appts, next] = await Promise.all([
-    dayStats(user.id, today),
-    listByDateKey(user.id, today),
-    nextAppointment(user.id),
+  const [stats, mine] = await Promise.all([
+    dashboardStats(user.id, user.teamIds),
+    listTasks({ scope: "mine", userId: user.id, teamIds: user.teamIds, page: 1, pageSize: 8 }),
   ]);
 
-  const items = appts.map((a) => toVM(a, tz));
-  const nextVm = next ? toVM(next, tz) : null;
+  const cards = [
+    { label: "Task-uri deschise", value: stats.tasksOpen, accent: "text-ink", href: "/tasks?scope=all&type=TASK" },
+    { label: "Tichete deschise", value: stats.ticketsOpen, accent: "text-st-confirmed", href: "/tasks?scope=all&type=TICKET" },
+    { label: "În lucru (ale mele)", value: stats.myInProgress, accent: "text-st-progress", href: "/tasks?scope=mine&status=IN_PROGRESS" },
+    { label: "De făcut (ale mele)", value: stats.myPending + stats.myRead, accent: "text-ink", href: "/tasks?scope=mine&status=PENDING" },
+    { label: "Finalizate (ale mele)", value: stats.myDone, accent: "text-st-done", href: "/tasks?scope=mine&status=DONE" },
+    { label: "Proiecte active", value: stats.projectsActive, accent: "text-brand", href: "/projects" },
+  ];
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <p className="mb-4 text-sm text-ink-soft capitalize">{humanDay(today, tz)}</p>
-
-      <OpenQuickAddButton />
-
-      <div className="mt-5 grid grid-cols-3 gap-3">
-        <Stat label="Programări azi" value={stats.total} accent="text-ink" />
-        <Stat label="Confirmate" value={stats.confirmed} accent="text-st-confirmed" />
-        <Stat label="Nu au venit" value={stats.noShow} accent="text-st-noshow" />
+    <div className="w-full">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+        {cards.map((c) => (
+          <Link key={c.label} href={c.href} className="card tap p-3.5 hover:border-brand">
+            <p className={`text-2xl font-bold ${c.accent}`}>{c.value}</p>
+            <p className="mt-0.5 text-xs leading-tight text-ink-soft">{c.label}</p>
+          </Link>
+        ))}
       </div>
 
-      {nextVm && (
-        <div className="mt-5">
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-            Următorul client
-          </h2>
-          <div className="card flex items-center gap-3 p-4">
-            <div className="grid size-12 place-items-center rounded-xl bg-brand-soft text-lg font-bold text-brand-strong">
-              {nextVm.time}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate font-semibold">{nextVm.clientName}</p>
-              <p className="truncate text-sm text-ink-soft">
-                {nextVm.categoryName ?? nextVm.title} · {nextVm.dateKey === today ? "azi" : nextVm.dateKey}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="mt-6">
-        <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-          Astăzi
-        </h2>
-        {items.length === 0 ? (
-          <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">
-            Nicio programare azi. Apasă „Adaugă programare".
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Task-urile mele</h2>
+          <Link href="/tasks" className="text-xs font-medium text-brand hover:underline">Vezi toate</Link>
+        </div>
+        {mine.items.length === 0 ? (
+          <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">
+            Niciun task activ. Apasă „+" pentru a crea unul.
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {items.map((a) => (
-              <AppointmentItem key={a.id} appt={a} />
-            ))}
+          <div className="flex flex-col gap-1.5">
+            {mine.items.map((t) => {
+              const meta = STATUS_RO[t.status] ?? STATUS_RO.PENDING;
+              return (
+                <Link key={t.id} href="/tasks" className="card tap flex items-center gap-2.5 px-3 py-2 hover:border-brand">
+                  <span className={`size-2.5 shrink-0 rounded-full ${meta.dot}`} />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">{t.title}</span>
+                  <span className="shrink-0 text-[11px] text-ink-soft">{meta.label}</span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  accent,
-}: {
-  label: string;
-  value: number;
-  accent: string;
-}) {
-  return (
-    <div className="card p-4">
-      <p className={`text-2xl font-bold ${accent}`}>{value}</p>
-      <p className="mt-0.5 text-xs text-ink-soft">{label}</p>
     </div>
   );
 }

@@ -10,10 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function ClientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; create?: string }>;
 }) {
   const user = await requirePermission("clients.view");
-  const { q = "", page: pageParam } = await searchParams;
+  const { q = "", page: pageParam, create } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
 
   const { items, total, hasMore } = await listClients(user.id, {
@@ -33,10 +33,10 @@ export default async function ClientsPage({
   }));
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <ClientSearch initial={q} />
       <p className="mb-3 text-xs text-ink-soft">{total} clienți</p>
-      <ClientsList items={rows} />
+      <ClientsList items={rows} openCreate={create === "1"} />
 
       {(page > 1 || hasMore) && (
         <div className="mt-5 flex items-center justify-between">

@@ -50,7 +50,7 @@ export default async function AppointmentsPage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {VIEWS.map((v) => (
           <Link

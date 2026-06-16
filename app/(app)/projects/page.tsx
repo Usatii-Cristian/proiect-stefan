@@ -7,8 +7,13 @@ import ProjectsManager from "@/app/components/ProjectsManager";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ create?: string }>;
+}) {
   await requirePermission("projects.view");
+  const sp = await searchParams;
   const [projects, users, teams, clients] = await Promise.all([
     listProjects(),
     userOptions(),
@@ -16,8 +21,14 @@ export default async function ProjectsPage() {
     invoiceClientOptions(),
   ]);
   return (
-    <div className="mx-auto max-w-3xl">
-      <ProjectsManager projects={projects} users={users} teams={teams} clients={clients} />
+    <div className="w-full">
+      <ProjectsManager
+        projects={projects}
+        users={users}
+        teams={teams}
+        clients={clients}
+        openCreate={sp.create === "1"}
+      />
     </div>
   );
 }

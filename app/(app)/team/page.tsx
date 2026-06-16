@@ -9,7 +9,7 @@ export default async function TeamPage() {
   await requirePermission("teams.view");
   const [teams, users] = await Promise.all([listTeams(), userOptions()]);
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="w-full">
       <TeamsManager teams={teams} users={users} />
     </div>
   );

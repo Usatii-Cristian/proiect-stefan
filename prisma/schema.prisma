@@ -79,6 +79,8 @@ enum TaskStatus {
   PENDING
   READ
   IN_PROGRESS
+  ON_HOLD
+  BLOCKED
   DONE
   CANCELLED
 }

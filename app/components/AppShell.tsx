@@ -4,8 +4,9 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
-import { QuickAddProvider, useQuickAdd } from "./quick-add-context";
+import { QuickAddProvider } from "./quick-add-context";
 import { ToastProvider } from "./toast";
+import CreateMenu from "./CreateMenu";
 import VoiceButton from "./VoiceButton";
 import type { CategoryLite, QuickDefaults } from "./types";
 
@@ -17,11 +18,8 @@ const NAV: NavItem[] = [
   { href: "/projects", label: "Proiecte", icon: folderIcon(), perm: "projects.view" },
   { href: "/team", label: "Echipă", icon: usersIcon(), perm: "teams.view" },
   { href: "/invoices", label: "Facturi", icon: invoiceIcon(), perm: "invoices.view" },
-  { href: "/users", label: "Utilizatori", icon: userIcon(), perm: "users.manage" },
-  { href: "/appointments", label: "Programări", icon: listIcon(), perm: "appointments.view" },
-  { href: "/calendar", label: "Calendar", icon: calIcon(), perm: "appointments.view" },
-  { href: "/kanban", label: "Kanban", icon: kanbanIcon(), perm: "appointments.view" },
   { href: "/clients", label: "Clienți", icon: usersIcon(), perm: "clients.view" },
+  { href: "/users", label: "Utilizatori", icon: userIcon(), perm: "users.manage" },
   { href: "/telegram", label: "Telegram", icon: sendIcon() },
   { href: "/settings", label: "Setări", icon: gearIcon() },
 ];
@@ -77,21 +75,6 @@ function ThemeToggle() {
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z" />
-      </svg>
-    </button>
-  );
-}
-
-function Fab() {
-  const { open } = useQuickAdd();
-  return (
-    <button
-      onClick={() => open()}
-      className="tap fixed bottom-20 right-5 z-40 grid size-14 place-items-center rounded-full bg-brand text-white shadow-xl shadow-brand/30 lg:bottom-6"
-      aria-label="Adaugă programare"
-    >
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-        <path d="M12 5v14M5 12h14" />
       </svg>
     </button>
   );
@@ -171,7 +154,7 @@ export default function AppShell({
         </div>
       </div>
 
-      <Fab />
+      <CreateMenu />
 
       {/* Bottom nav mobil */}
       <BottomNav perms={perms} />
@@ -270,5 +253,3 @@ function sendIcon() {
 function gearIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 0 1-4 0v-.2A1.6 1.6 0 0 0 6.6 19l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 4 13.4H4a2 2 0 0 1 0-4h.2A1.6 1.6 0 0 0 5 6.6l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3 1.6 1.6 0 0 0 1-1.5V2a2 2 0 0 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H22a2 2 0 0 1 0 4h-.2a1.6 1.6 0 0 0-1.4 1Z"/></svg>;
 }
-
-export { useQuickAdd };

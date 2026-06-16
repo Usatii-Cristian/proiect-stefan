@@ -30,7 +30,7 @@ export default async function TelegramPage() {
   const deepLink = botUsername ? `https://t.me/${botUsername}?start=${token}` : null;
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="w-full">
       <div className="card mb-5 flex items-center gap-3 p-5">
         <div className="grid size-12 place-items-center rounded-xl bg-brand text-white">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

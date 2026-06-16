@@ -131,16 +131,35 @@ export const TASK_STATUS_RO: Record<string, string> = {
   PENDING: "În așteptare",
   READ: "Citit",
   IN_PROGRESS: "În lucru",
+  ON_HOLD: "Suspendat",
+  BLOCKED: "Blocat",
   DONE: "Finalizat",
   CANCELLED: "Anulat",
 };
 
-/** Butoane de status pentru un task (asignat). */
+export const TASK_TYPE_RO: Record<string, string> = {
+  TASK: "Task",
+  TICKET: "Tichet",
+  WORK_ORDER: "Work order",
+};
+
+export const TASK_PRIORITY_RO: Record<string, string> = {
+  LOW: "Scăzută",
+  MEDIUM: "Medie",
+  HIGH: "Ridicată",
+  URGENT: "Urgentă",
+};
+
+/** Butoane de status pentru un task (asignat) — tranzițiile principale. */
 export function taskStatusButtons(taskId: string): InlineButton[][] {
   return [
     [
       { text: "👁 Citit", callback_data: `TST:READ:${taskId}` },
       { text: "▶️ În lucru", callback_data: `TST:IN_PROGRESS:${taskId}` },
+    ],
+    [
+      { text: "⏸ Suspendă", callback_data: `TST:ON_HOLD:${taskId}` },
+      { text: "⛔ Blocat", callback_data: `TST:BLOCKED:${taskId}` },
     ],
     [
       { text: "✅ Finalizat", callback_data: `TST:DONE:${taskId}` },
