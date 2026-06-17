@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { prisma } from "../prisma";
 import { DEMO } from "../demo";
 import type { InvoiceStatus, Prisma } from "@prisma/client";
@@ -112,20 +113,26 @@ export async function getInvoiceByToken(token: string) {
 
 // --- Date reactive pentru formularul de creare ---
 
-export async function invoiceClientOptions(): Promise<{ id: string; name: string }[]> {
-  if (DEMO) return [];
-  return prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
-}
+export const invoiceClientOptions = unstable_cache(
+  async (): Promise<{ id: string; name: string }[]> => {
+    if (DEMO) return [];
+    return prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } });
+  },
+  ["client-options"],
+  { tags: ["clients"], revalidate: 300 },
+);
 
-export async function invoiceProjectOptions(): Promise<
-  { id: string; name: string; clientId: string | null }[]
-> {
-  if (DEMO) return [];
-  return prisma.project.findMany({
-    select: { id: true, name: true, clientId: true },
-    orderBy: { name: "asc" },
-  });
-}
+export const invoiceProjectOptions = unstable_cache(
+  async (): Promise<{ id: string; name: string; clientId: string | null }[]> => {
+    if (DEMO) return [];
+    return prisma.project.findMany({
+      select: { id: true, name: true, clientId: true },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["invoice-project-options"],
+  { tags: ["projects"], revalidate: 300 },
+);
 
 export async function tasksByProject(projectId: string): Promise<{ id: string; title: string }[]> {
   if (DEMO) return [];

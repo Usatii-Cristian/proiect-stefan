@@ -4,11 +4,8 @@ import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logout } from "@/app/actions/auth";
-import { QuickAddProvider } from "./quick-add-context";
 import { ToastProvider } from "./toast";
 import CreateMenu from "./CreateMenu";
-import VoiceButton from "./VoiceButton";
-import type { CategoryLite, QuickDefaults } from "./types";
 
 type NavItem = { href: string; label: string; icon: ReactNode; perm?: string };
 
@@ -44,6 +41,7 @@ function NavList({
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             onClick={onNavigate}
             className={`tap flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ${
               active
@@ -84,24 +82,19 @@ export default function AppShell({
   userName,
   demo = false,
   perms,
-  categories,
-  defaults,
   children,
 }: {
   userName: string;
   demo?: boolean;
   perms?: Record<string, boolean>;
-  categories: CategoryLite[];
-  defaults: QuickDefaults;
   children: ReactNode;
 }) {
   const [drawer, setDrawer] = useState(false);
   const path = usePathname();
-  const current = NAV.find((n) => path.startsWith(n.href))?.label ?? "Programări";
+  const current = NAV.find((n) => path.startsWith(n.href))?.label ?? "Dashboard";
 
   return (
     <ToastProvider>
-    <QuickAddProvider categories={categories} defaults={defaults}>
       <div className="lg:grid lg:grid-cols-[260px_1fr]">
         {/* Sidebar desktop */}
         <aside className="sticky top-0 hidden h-dvh flex-col border-r border-[var(--color-line)] bg-[var(--color-surface)] p-4 lg:flex">
@@ -140,7 +133,6 @@ export default function AppShell({
             </button>
             <h1 className="text-lg font-bold lg:text-xl">{current}</h1>
             <div className="ml-auto flex items-center gap-2">
-              <VoiceButton />
               <ThemeToggle />
             </div>
           </header>
@@ -158,7 +150,6 @@ export default function AppShell({
 
       {/* Bottom nav mobil */}
       <BottomNav perms={perms} />
-    </QuickAddProvider>
     </ToastProvider>
   );
 }
@@ -174,6 +165,7 @@ function BottomNav({ perms }: { perms?: Record<string, boolean> }) {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] ${
               active ? "text-brand" : "text-ink-soft"
             }`}

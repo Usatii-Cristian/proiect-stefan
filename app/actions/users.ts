@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can, ALL_PERMISSION_KEYS } from "@/lib/permissions";
@@ -8,6 +8,11 @@ import { hashPassword } from "@/lib/password";
 import { DEMO } from "@/lib/demo";
 
 export type UserState = { ok?: boolean; error?: string; id?: string } | undefined;
+
+function invalidate() {
+  revalidatePath("/users");
+  revalidateTag("users", "max");
+}
 
 function parsePerms(formData: FormData): string[] {
   return formData
@@ -49,7 +54,7 @@ export async function createUser(
     },
     select: { id: true },
   });
-  revalidatePath("/users");
+  invalidate();
   return { ok: true, id: created.id };
 }
 
@@ -79,7 +84,7 @@ export async function updateUser(
       ...(newPassword.length >= 8 ? { passwordHash: await hashPassword(newPassword) } : {}),
     },
   });
-  revalidatePath("/users");
+  invalidate();
   return { ok: true, id };
 }
 
@@ -91,5 +96,29 @@ export async function toggleUserActive(id: string, active: boolean): Promise<voi
   await prisma.user.update({ where: { id }, data: { isActive: active } });
   // La dezactivare, invalidează sesiunile
   if (!active) await prisma.session.deleteMany({ where: { userId: id } });
-  revalidatePath("/users");
+  invalidate();
+}
+
+/** Ștergere definitivă utilizator (cu curățarea datelor legate). */
+export async function deleteUser(id: string): Promise<UserState> {
+  const admin = await requireUser();
+  if (!can(admin, "users.manage")) return { error: "Fără permisiune." };
+  if (DEMO) return { error: "Mod demo." };
+  if (id === admin.id) return { error: "Nu te poți șterge pe tine." };
+
+  // Reasignează datele importante adminului (evităm pierderea task-urilor/proiectelor create)
+  await prisma.task.updateMany({ where: { creatorId: id }, data: { creatorId: admin.id } });
+  await prisma.project.updateMany({ where: { ownerId: id }, data: { ownerId: admin.id } });
+  await prisma.task.updateMany({ where: { assigneeId: id }, data: { assigneeId: null } });
+  await prisma.project.updateMany({ where: { assigneeId: id }, data: { assigneeId: null } });
+  await prisma.session.deleteMany({ where: { userId: id } });
+  await prisma.telegramAccount.deleteMany({ where: { userId: id } });
+  await prisma.pushSubscription.deleteMany({ where: { userId: id } });
+  try {
+    await prisma.user.delete({ where: { id } });
+  } catch {
+    return { error: "Nu am putut șterge (are date legate). Dezactivează-l în schimb." };
+  }
+  invalidate();
+  return { ok: true };
 }

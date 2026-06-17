@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
@@ -28,6 +28,7 @@ export async function createTeam(
     select: { id: true },
   });
   revalidatePath("/team");
+  revalidateTag("teams", "max");
   return { ok: true, id: team.id };
 }
 
@@ -52,6 +53,7 @@ export async function updateTeam(
     },
   });
   revalidatePath("/team");
+  revalidateTag("teams", "max");
   return { ok: true, id };
 }
 
@@ -62,4 +64,5 @@ export async function deleteTeam(id: string): Promise<void> {
   await prisma.task.updateMany({ where: { teamId: id }, data: { teamId: null } });
   await prisma.team.delete({ where: { id } }).catch(() => {});
   revalidatePath("/team");
+  revalidateTag("teams", "max");
 }

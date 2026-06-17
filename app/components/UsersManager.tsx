@@ -6,11 +6,12 @@ import {
   createUser,
   updateUser,
   toggleUserActive,
+  deleteUser,
   type UserState,
 } from "@/app/actions/users";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
 import { useToast } from "./toast";
-import { IconX, IconPencil } from "./icons";
+import { IconX, IconPencil, IconTrash } from "./icons";
 
 type UserRow = {
   id: string;
@@ -43,6 +44,20 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
         setRows((r) => r.map((x) => (x.id === u.id ? { ...x, isActive: !next } : x)));
         toast.error("Acțiunea a eșuat");
       });
+  }
+
+  function remove(u: UserRow) {
+    if (!confirm(`Ștergi utilizatorul „${u.name}"? Task-urile/proiectele lui trec la tine.`)) return;
+    const prev = rows;
+    setRows((r) => r.filter((x) => x.id !== u.id)); // optimistic
+    deleteUser(u.id).then((res) => {
+      if (res?.error) {
+        setRows(prev);
+        toast.error(res.error);
+      } else {
+        toast.success("Utilizator șters");
+      }
+    });
   }
 
   return (
@@ -82,6 +97,13 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
               title="Editează"
             >
               <IconPencil className="size-4" />
+            </button>
+            <button
+              onClick={() => remove(u)}
+              className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]"
+              title="Șterge"
+            >
+              <IconTrash className="size-4" />
             </button>
           </div>
         ))}

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
@@ -46,6 +46,7 @@ export async function createClient(
     select: { id: true },
   });
   revalidatePath("/clients");
+  revalidateTag("clients", "max");
   return { ok: true, id: client.id };
 }
 
@@ -85,6 +86,7 @@ export async function updateClient(
     },
   });
   revalidatePath("/clients");
+  revalidateTag("clients", "max");
   return { ok: true, id };
 }
 
@@ -94,4 +96,5 @@ export async function deleteClient(id: string): Promise<void> {
   if (DEMO) return;
   await prisma.client.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/clients");
+  revalidateTag("clients", "max");
 }

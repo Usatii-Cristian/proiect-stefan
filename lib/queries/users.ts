@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { prisma } from "../prisma";
 import { DEMO } from "../demo";
 
@@ -39,12 +40,16 @@ export async function getUserById(id: string): Promise<UserRow | null> {
   return prisma.user.findUnique({ where: { id }, select: USER_SELECT });
 }
 
-/** Opțiuni minime pentru selectoare de asignare (utilizatori activi). */
-export async function userOptions(): Promise<{ id: string; name: string }[]> {
-  if (DEMO) return [{ id: "demo-user", name: "Cont Demo" }];
-  return prisma.user.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true },
-    orderBy: { name: "asc" },
-  });
-}
+/** Opțiuni minime pentru selectoare de asignare (utilizatori activi). Cache cross-request. */
+export const userOptions = unstable_cache(
+  async (): Promise<{ id: string; name: string }[]> => {
+    if (DEMO) return [{ id: "demo-user", name: "Cont Demo" }];
+    return prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["user-options"],
+  { tags: ["users"], revalidate: 300 },
+);

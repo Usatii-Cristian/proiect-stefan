@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { prisma } from "../prisma";
 import { DEMO } from "../demo";
 import type { ProjectStatus } from "@prisma/client";
@@ -44,16 +45,20 @@ export async function listProjects(): Promise<ProjectRow[]> {
   }));
 }
 
-export async function projectOptions(): Promise<
-  { id: string; name: string; assigneeId: string | null; teamId: string | null }[]
-> {
-  if (DEMO) return [];
-  return prisma.project.findMany({
-    where: { status: { in: ["ACTIVE", "ON_HOLD"] } },
-    select: { id: true, name: true, assigneeId: true, teamId: true },
-    orderBy: { name: "asc" },
-  });
-}
+export const projectOptions = unstable_cache(
+  async (): Promise<
+    { id: string; name: string; assigneeId: string | null; teamId: string | null }[]
+  > => {
+    if (DEMO) return [];
+    return prisma.project.findMany({
+      where: { status: { in: ["ACTIVE", "ON_HOLD"] } },
+      select: { id: true, name: true, assigneeId: true, teamId: true },
+      orderBy: { name: "asc" },
+    });
+  },
+  ["project-options"],
+  { tags: ["projects"], revalidate: 300 },
+);
 
 export async function getProject(id: string) {
   if (DEMO) return null;

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
@@ -50,5 +50,6 @@ export async function updateCompanySettings(
   });
 
   revalidatePath("/settings");
+  revalidateTag("company", "max");
   return { ok: true };
 }

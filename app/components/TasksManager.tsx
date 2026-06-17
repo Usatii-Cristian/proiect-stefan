@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTaskAction,
@@ -20,20 +20,21 @@ type Task = {
   status: Status;
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
   dueAt: string | Date | null;
+  assigneeId: string | null;
   assigneeName: string | null;
   teamName: string | null;
   projectName: string | null;
   creatorName: string;
 };
 
-const ST: Record<Status, { label: string; badge: string; dot: string }> = {
-  PENDING: { label: "În așteptare", badge: "bg-st-new/12 text-st-new", dot: "bg-st-new" },
-  READ: { label: "Citit", badge: "bg-st-confirmed/12 text-st-confirmed", dot: "bg-st-confirmed" },
-  IN_PROGRESS: { label: "În lucru", badge: "bg-st-progress/12 text-st-progress", dot: "bg-st-progress" },
-  ON_HOLD: { label: "Suspendat", badge: "bg-st-noshow/12 text-st-noshow", dot: "bg-st-noshow" },
-  BLOCKED: { label: "Blocat", badge: "bg-st-cancelled/12 text-st-cancelled", dot: "bg-st-cancelled" },
-  DONE: { label: "Finalizat", badge: "bg-st-done/12 text-st-done", dot: "bg-st-done" },
-  CANCELLED: { label: "Anulat", badge: "bg-st-cancelled/12 text-st-cancelled", dot: "bg-st-cancelled" },
+const ST: Record<Status, { label: string; dot: string }> = {
+  PENDING: { label: "În așteptare", dot: "bg-st-new" },
+  READ: { label: "Citit", dot: "bg-st-confirmed" },
+  IN_PROGRESS: { label: "În lucru", dot: "bg-st-progress" },
+  ON_HOLD: { label: "Suspendat", dot: "bg-st-noshow" },
+  BLOCKED: { label: "Blocat", dot: "bg-st-cancelled" },
+  DONE: { label: "Finalizat", dot: "bg-st-done" },
+  CANCELLED: { label: "Anulat", dot: "bg-st-cancelled" },
 };
 const TYPE_RO = { TASK: "Task", TICKET: "Tichet", WORK_ORDER: "Work order" };
 const PRIO_RO = { LOW: "Scăzută", MEDIUM: "Medie", HIGH: "Ridicată", URGENT: "Urgentă" };
@@ -49,11 +50,6 @@ export default function TasksManager({
   hasMore,
   page,
   scope,
-  status,
-  type,
-  assignee,
-  due,
-  q,
   users,
   teams,
   projects,
@@ -65,11 +61,6 @@ export default function TasksManager({
   hasMore: boolean;
   page: number;
   scope: string;
-  status: string;
-  type: string;
-  assignee: string;
-  due: string;
-  q: string;
   users: Opt[];
   teams: Opt[];
   projects: Opt[];
@@ -85,29 +76,32 @@ export default function TasksManager({
   const [tasks, setTasks] = useState(items);
   useEffect(() => setTasks(items), [items]);
 
-  const [search, setSearch] = useState(q);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Filtre client-side (instant, fără reload)
+  const [fSearch, setFSearch] = useState("");
+  const [fStatus, setFStatus] = useState("");
+  const [fType, setFType] = useState("");
+  const [fAssignee, setFAssignee] = useState("");
+  const [fDue, setFDue] = useState("");
 
-  function navigate(params: Record<string, string | number>) {
-    const sp = new URLSearchParams();
-    sp.set("scope", scope);
-    const merged = { status, type, assignee, due, q, page, ...params };
-    for (const k of ["status", "type", "assignee", "due", "q"] as const) {
-      if (merged[k]) sp.set(k, String(merged[k]));
-    }
-    if (merged.page && Number(merged.page) > 1) sp.set("page", String(merged.page));
-    router.push(`/tasks?${sp.toString()}`);
+  const filtered = useMemo(() => {
+    const term = fSearch.trim().toLowerCase();
+    const dueTs = fDue ? new Date(`${fDue}T23:59:59`).getTime() : null;
+    return tasks.filter((t) => {
+      if (fStatus && t.status !== fStatus) return false;
+      if (fType && t.type !== fType) return false;
+      if (fAssignee && t.assigneeId !== fAssignee) return false;
+      if (term && !t.title.toLowerCase().includes(term)) return false;
+      if (dueTs) {
+        if (!t.dueAt) return false;
+        if (new Date(t.dueAt).getTime() > dueTs) return false;
+      }
+      return true;
+    });
+  }, [tasks, fSearch, fStatus, fType, fAssignee, fDue]);
+
+  function goPage(n: number) {
+    router.push(`/tasks?scope=${scope}${n > 1 ? `&page=${n}` : ""}`);
   }
-
-  useEffect(() => {
-    if (timer.current) clearTimeout(timer.current);
-    if (search === q) return;
-    timer.current = setTimeout(() => navigate({ q: search, page: 1 }), 300);
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
 
   function changeStatus(id: string, next: Status) {
     const prev = tasks;
@@ -134,35 +128,38 @@ export default function TasksManager({
       });
   }
 
-  const activeFilters = Boolean(status || type || assignee || due);
+  const activeFilters = Boolean(fStatus || fType || fAssignee || fDue || fSearch);
 
   return (
     <>
-      {/* Filtre */}
+      {/* Filtre (client-side, instant) */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={fSearch}
+          onChange={(e) => setFSearch(e.target.value)}
           placeholder="Caută…"
           className="h-9 min-w-40 flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
         />
-        <select value={status} onChange={(e) => navigate({ status: e.target.value, page: 1 })} className={fld}>
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={fld}>
           <option value="">Status: toate</option>
           {STATUSES.map((s) => <option key={s} value={s}>{ST[s].label}</option>)}
         </select>
-        <select value={type} onChange={(e) => navigate({ type: e.target.value, page: 1 })} className={fld}>
+        <select value={fType} onChange={(e) => setFType(e.target.value)} className={fld}>
           <option value="">Tip: toate</option>
           <option value="TASK">Task</option>
           <option value="TICKET">Tichet</option>
           <option value="WORK_ORDER">Work order</option>
         </select>
-        <select value={assignee} onChange={(e) => navigate({ assignee: e.target.value, page: 1 })} className={fld}>
+        <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className={fld}>
           <option value="">Persoană: toți</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
-        <input type="date" value={due} onChange={(e) => navigate({ due: e.target.value, page: 1 })} title="Scadent până la" className={fld} />
+        <input type="date" value={fDue} onChange={(e) => setFDue(e.target.value)} title="Scadent până la" className={fld} />
         {activeFilters && (
-          <button onClick={() => router.push(`/tasks?scope=${scope}`)} className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]">
+          <button
+            onClick={() => { setFSearch(""); setFStatus(""); setFType(""); setFAssignee(""); setFDue(""); }}
+            className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]"
+          >
             Resetează
           </button>
         )}
@@ -179,11 +176,13 @@ export default function TasksManager({
         </div>
       )}
 
-      {tasks.length === 0 ? (
-        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">Niciun rezultat.</div>
+      {filtered.length === 0 ? (
+        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">
+          {tasks.length === 0 ? "Niciun task." : "Niciun rezultat pentru filtre."}
+        </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {tasks.map((t) => (
+          {filtered.map((t) => (
             <div key={t.id} className="card flex items-center gap-2.5 px-3 py-2">
               <span className={`size-2.5 shrink-0 rounded-full ${ST[t.status].dot}`} title={ST[t.status].label} />
               <div className="min-w-0 flex-1">
@@ -219,11 +218,11 @@ export default function TasksManager({
 
       {(page > 1 || hasMore) && (
         <div className="mt-4 flex items-center justify-between">
-          <button disabled={page <= 1} onClick={() => navigate({ page: page - 1 })} className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40">
+          <button disabled={page <= 1} onClick={() => goPage(page - 1)} className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40">
             <IconChevronLeft className="size-4" /> Anterior
           </button>
           <span className="text-sm text-ink-soft">Pagina {page}</span>
-          <button disabled={!hasMore} onClick={() => navigate({ page: page + 1 })} className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40">
+          <button disabled={!hasMore} onClick={() => goPage(page + 1)} className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40">
             Următor <IconChevronRight className="size-4" />
           </button>
         </div>

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
@@ -45,6 +45,7 @@ export async function createProject(
     select: { id: true },
   });
   revalidatePath("/projects");
+  revalidateTag("projects", "max");
   return { ok: true, id: p.id };
 }
 
@@ -70,6 +71,7 @@ export async function updateProject(
     },
   });
   revalidatePath("/projects");
+  revalidateTag("projects", "max");
   return { ok: true, id };
 }
 
@@ -81,4 +83,5 @@ export async function deleteProject(id: string): Promise<void> {
   await prisma.task.updateMany({ where: { projectId: id }, data: { projectId: null } });
   await prisma.project.delete({ where: { id } }).catch(() => {});
   revalidatePath("/projects");
+  revalidateTag("projects", "max");
 }

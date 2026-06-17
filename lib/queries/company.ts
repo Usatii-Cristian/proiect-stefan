@@ -1,5 +1,5 @@
 import "server-only";
-import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { prisma } from "../prisma";
 import { DEMO } from "../demo";
 
@@ -42,12 +42,16 @@ const SELECT = {
   invoicePrefix: true,
 } as const;
 
-/** Datele companiei (singleton). Cache per-request. */
-export const getCompanySettings = cache(async (): Promise<Company> => {
-  if (DEMO) return { ...DEFAULTS, companyName: "Compania Demo SRL" };
-  const row = await prisma.companySettings.findUnique({
-    where: { singleton: "main" },
-    select: SELECT,
-  });
-  return row ?? DEFAULTS;
-});
+/** Datele companiei (singleton). Cache cross-request. */
+export const getCompanySettings = unstable_cache(
+  async (): Promise<Company> => {
+    if (DEMO) return { ...DEFAULTS, companyName: "Compania Demo SRL" };
+    const row = await prisma.companySettings.findUnique({
+      where: { singleton: "main" },
+      select: SELECT,
+    });
+    return row ?? DEFAULTS;
+  },
+  ["company-settings"],
+  { tags: ["company"], revalidate: 600 },
+);
