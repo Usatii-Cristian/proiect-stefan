@@ -200,6 +200,14 @@ async function handleCallback(cb: Cb) {
     return;
   }
 
+  // Progres TASK din butoane
+  const prMatch = data.match(/^TPR:(\d+):(.+)$/);
+  if (prMatch) {
+    const res = await changeTaskProgress(prMatch[2], user.userId, Number(prMatch[1]));
+    await sendMessage(chatId, res.ok ? `📊 Progres: ${prMatch[1]}%` : `❌ ${res.error}`);
+    return;
+  }
+
   // Schimbare status programare
   const stMatch = data.match(/^ST_(CONFIRM|DONE|CANCEL|NOSHOW):(.+)$/);
   if (stMatch) {

@@ -9,6 +9,7 @@ export type TaskRow = {
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
+  progress: number;
   dueAt: Date | null;
   creatorId: string;
   assigneeId: string | null;
@@ -27,6 +28,7 @@ const TASK_SELECT = {
   title: true,
   status: true,
   priority: true,
+  progress: true,
   dueAt: true,
   creatorId: true,
   assigneeId: true,
@@ -46,6 +48,7 @@ function toRow(t: Prisma.TaskGetPayload<{ select: typeof TASK_SELECT }>): TaskRo
     title: t.title,
     status: t.status,
     priority: t.priority,
+    progress: t.progress,
     dueAt: t.dueAt,
     creatorId: t.creatorId,
     assigneeId: t.assigneeId,
@@ -144,46 +147,18 @@ export async function getTask(id: string) {
   });
 }
 
-/** Statistici pe status pentru un scope (dashboard/rapoarte). */
-export async function taskStats(userId: string, teamIds: string[], scope: "mine" | "all") {
-  if (DEMO) {
-    return { PENDING: 0, READ: 0, IN_PROGRESS: 0, DONE: 0, CANCELLED: 0, total: 0 };
-  }
-  const where: Prisma.TaskWhereInput =
-    scope === "mine"
-      ? { OR: [{ assigneeId: userId }, ...(teamIds.length ? [{ teamId: { in: teamIds } }] : [])] }
-      : {};
-  const grouped = await prisma.task.groupBy({
-    by: ["status"],
-    where,
-    _count: { _all: true },
-  });
-  const m = Object.fromEntries(grouped.map((g) => [g.status, g._count._all])) as Record<
-    TaskStatus,
-    number
-  >;
-  return {
-    PENDING: m.PENDING ?? 0,
-    READ: m.READ ?? 0,
-    IN_PROGRESS: m.IN_PROGRESS ?? 0,
-    DONE: m.DONE ?? 0,
-    CANCELLED: m.CANCELLED ?? 0,
-    total: grouped.reduce((s, g) => s + g._count._all, 0),
-  };
-}
-
 /** Statistici pentru dashboard: ale mele pe status + tichete/task-uri deschise + proiecte active. */
 export async function dashboardStats(userId: string, teamIds: string[]) {
   if (DEMO) {
     return {
-      myPending: 0, myRead: 0, myInProgress: 0, myDone: 0, myOpen: 0,
+      myOpen: 0, myInProgress: 0, myReview: 0, myDone: 0,
       ticketsOpen: 0, tasksOpen: 0, projectsActive: 0,
     };
   }
   const mineWhere: Prisma.TaskWhereInput = {
     OR: [{ assigneeId: userId }, ...(teamIds.length ? [{ teamId: { in: teamIds } }] : [])],
   };
-  const openStatuses: TaskStatus[] = ["PENDING", "READ", "IN_PROGRESS", "ON_HOLD", "BLOCKED"];
+  const openStatuses: TaskStatus[] = ["NEW", "ASSIGNED", "READ", "IN_PROGRESS", "ON_HOLD", "REVIEW"];
 
   const [grouped, ticketsOpen, tasksOpen, projectsActive] = await Promise.all([
     prisma.task.groupBy({ by: ["status"], where: mineWhere, _count: { _all: true } }),
@@ -197,11 +172,10 @@ export async function dashboardStats(userId: string, teamIds: string[]) {
   >;
   const myOpen = openStatuses.reduce((s, st) => s + (m[st] ?? 0), 0);
   return {
-    myPending: m.PENDING ?? 0,
-    myRead: m.READ ?? 0,
-    myInProgress: m.IN_PROGRESS ?? 0,
-    myDone: m.DONE ?? 0,
     myOpen,
+    myInProgress: m.IN_PROGRESS ?? 0,
+    myReview: m.REVIEW ?? 0,
+    myDone: m.DONE ?? 0,
     ticketsOpen,
     tasksOpen,
     projectsActive,

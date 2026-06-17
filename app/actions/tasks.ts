@@ -6,14 +6,28 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
-import { createTask, changeTaskStatus, notifyNewTask } from "@/lib/services/tasks";
+import {
+  createTask,
+  changeTaskStatus,
+  changeTaskProgress,
+  notifyNewTask,
+} from "@/lib/services/tasks";
 import type { TaskStatus, TaskType, TaskPriority } from "@prisma/client";
 
 export type TaskState = { ok?: boolean; error?: string; id?: string } | undefined;
 
 const TYPES: TaskType[] = ["TASK", "TICKET", "WORK_ORDER"];
 const PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const STATUSES: TaskStatus[] = ["PENDING", "READ", "IN_PROGRESS", "DONE", "CANCELLED"];
+const STATUSES: TaskStatus[] = [
+  "NEW",
+  "ASSIGNED",
+  "READ",
+  "IN_PROGRESS",
+  "ON_HOLD",
+  "REVIEW",
+  "DONE",
+  "CANCELLED",
+];
 
 function revalidateTasks() {
   for (const p of ["/tasks", "/dashboard", "/projects"]) revalidatePath(p);
@@ -65,6 +79,15 @@ export async function setTaskStatus(id: string, status: string): Promise<TaskSta
   const user = await requireUser();
   if (!STATUSES.includes(status as TaskStatus)) return { error: "Status invalid." };
   const res = await changeTaskStatus(id, user.id, status as TaskStatus);
+  if (!res.ok) return { error: res.error };
+  revalidateTasks();
+  return { ok: true };
+}
+
+/** Actualizare progres (0-100), permisă oricărui utilizator autentificat. */
+export async function setTaskProgress(id: string, progress: number): Promise<TaskState> {
+  const user = await requireUser();
+  const res = await changeTaskProgress(id, user.id, progress);
   if (!res.ok) return { error: res.error };
   revalidateTasks();
   return { ok: true };

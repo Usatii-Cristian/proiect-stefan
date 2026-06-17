@@ -5,11 +5,12 @@ import { dashboardStats, listTasks } from "@/lib/queries/tasks";
 export const dynamic = "force-dynamic";
 
 const STATUS_RO: Record<string, { label: string; dot: string }> = {
-  PENDING: { label: "În așteptare", dot: "bg-st-new" },
+  NEW: { label: "Nou", dot: "bg-st-new" },
+  ASSIGNED: { label: "Asignat", dot: "bg-st-new" },
   READ: { label: "Citit", dot: "bg-st-confirmed" },
   IN_PROGRESS: { label: "În lucru", dot: "bg-st-progress" },
-  ON_HOLD: { label: "Suspendat", dot: "bg-st-noshow" },
-  BLOCKED: { label: "Blocat", dot: "bg-st-cancelled" },
+  ON_HOLD: { label: "În așteptare", dot: "bg-st-noshow" },
+  REVIEW: { label: "În verificare", dot: "bg-st-confirmed" },
   DONE: { label: "Finalizat", dot: "bg-st-done" },
   CANCELLED: { label: "Anulat", dot: "bg-st-cancelled" },
 };
@@ -22,11 +23,11 @@ export default async function DashboardPage() {
   ]);
 
   const cards = [
-    { label: "Task-uri deschise", value: stats.tasksOpen, accent: "text-ink", href: "/tasks?scope=all&type=TASK" },
-    { label: "Tichete deschise", value: stats.ticketsOpen, accent: "text-st-confirmed", href: "/tasks?scope=all&type=TICKET" },
-    { label: "În lucru (ale mele)", value: stats.myInProgress, accent: "text-st-progress", href: "/tasks?scope=mine&status=IN_PROGRESS" },
-    { label: "De făcut (ale mele)", value: stats.myPending + stats.myRead, accent: "text-ink", href: "/tasks?scope=mine&status=PENDING" },
-    { label: "Finalizate (ale mele)", value: stats.myDone, accent: "text-st-done", href: "/tasks?scope=mine&status=DONE" },
+    { label: "Task-uri deschise", value: stats.tasksOpen, accent: "text-ink", href: "/tasks?scope=all" },
+    { label: "Tichete deschise", value: stats.ticketsOpen, accent: "text-st-confirmed", href: "/tasks?scope=all" },
+    { label: "Active (ale mele)", value: stats.myOpen, accent: "text-ink", href: "/tasks?scope=mine" },
+    { label: "În lucru (ale mele)", value: stats.myInProgress, accent: "text-st-progress", href: "/tasks?scope=mine" },
+    { label: "În verificare", value: stats.myReview, accent: "text-st-confirmed", href: "/tasks?scope=mine" },
     { label: "Proiecte active", value: stats.projectsActive, accent: "text-brand", href: "/projects" },
   ];
 
@@ -53,7 +54,7 @@ export default async function DashboardPage() {
         ) : (
           <div className="flex flex-col gap-1.5">
             {mine.items.map((t) => {
-              const meta = STATUS_RO[t.status] ?? STATUS_RO.PENDING;
+              const meta = STATUS_RO[t.status] ?? STATUS_RO.NEW;
               return (
                 <Link key={t.id} href="/tasks" className="card tap flex items-center gap-2.5 px-3 py-2 hover:border-brand">
                   <span className={`size-2.5 shrink-0 rounded-full ${meta.dot}`} />

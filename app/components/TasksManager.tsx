@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   createTaskAction,
   setTaskStatus,
+  setTaskProgress,
   deleteTask,
   type TaskState,
 } from "@/app/actions/tasks";
@@ -12,13 +13,14 @@ import { useToast } from "./toast";
 import { IconTrash, IconX, IconChevronLeft, IconChevronRight } from "./icons";
 
 type Opt = { id: string; name: string };
-type Status = "PENDING" | "READ" | "IN_PROGRESS" | "ON_HOLD" | "BLOCKED" | "DONE" | "CANCELLED";
+type Status = "NEW" | "ASSIGNED" | "READ" | "IN_PROGRESS" | "ON_HOLD" | "REVIEW" | "DONE" | "CANCELLED";
 type Task = {
   id: string;
   type: "TASK" | "TICKET" | "WORK_ORDER";
   title: string;
   status: Status;
   priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  progress: number;
   dueAt: string | Date | null;
   assigneeId: string | null;
   assigneeName: string | null;
@@ -28,17 +30,19 @@ type Task = {
 };
 
 const ST: Record<Status, { label: string; dot: string }> = {
-  PENDING: { label: "În așteptare", dot: "bg-st-new" },
+  NEW: { label: "Nou", dot: "bg-st-new" },
+  ASSIGNED: { label: "Asignat", dot: "bg-st-new" },
   READ: { label: "Citit", dot: "bg-st-confirmed" },
   IN_PROGRESS: { label: "În lucru", dot: "bg-st-progress" },
-  ON_HOLD: { label: "Suspendat", dot: "bg-st-noshow" },
-  BLOCKED: { label: "Blocat", dot: "bg-st-cancelled" },
+  ON_HOLD: { label: "În așteptare", dot: "bg-st-noshow" },
+  REVIEW: { label: "În verificare", dot: "bg-st-confirmed" },
   DONE: { label: "Finalizat", dot: "bg-st-done" },
   CANCELLED: { label: "Anulat", dot: "bg-st-cancelled" },
 };
 const TYPE_RO = { TASK: "Task", TICKET: "Tichet", WORK_ORDER: "Work order" };
 const PRIO_RO = { LOW: "Scăzută", MEDIUM: "Medie", HIGH: "Ridicată", URGENT: "Urgentă" };
-const STATUSES: Status[] = ["PENDING", "READ", "IN_PROGRESS", "ON_HOLD", "BLOCKED", "DONE", "CANCELLED"];
+const STATUSES: Status[] = ["NEW", "ASSIGNED", "READ", "IN_PROGRESS", "ON_HOLD", "REVIEW", "DONE", "CANCELLED"];
+const PROGRESS = [0, 25, 50, 75, 100];
 
 const fld =
   "h-9 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand";
@@ -112,6 +116,19 @@ export default function TasksManager({
         toast.error(res.error);
       } else {
         toast.success(`Status: ${ST[next].label}`);
+      }
+    });
+  }
+
+  function changeProgress(id: string, progress: number) {
+    const prev = tasks;
+    setTasks((cur) => cur.map((t) => (t.id === id ? { ...t, progress } : t)));
+    setTaskProgress(id, progress).then((res) => {
+      if (res?.error) {
+        setTasks(prev);
+        toast.error(res.error);
+      } else {
+        toast.success(`Progres: ${progress}%`);
       }
     });
   }
@@ -197,8 +214,17 @@ export default function TasksManager({
                   {t.projectName && ` · ${t.projectName}`}
                   {(t.assigneeName || t.teamName) && ` · ${t.assigneeName ?? t.teamName}`}
                   {t.dueAt && ` · ${new Date(t.dueAt).toLocaleDateString("ro-RO")}`}
+                  {t.progress > 0 && ` · ${t.progress}%`}
                 </p>
               </div>
+              <select
+                value={t.progress}
+                onChange={(e) => changeProgress(t.id, Number(e.target.value))}
+                title="Progres"
+                className="hidden h-8 w-16 shrink-0 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-1 text-[11px] outline-none focus:border-brand sm:block"
+              >
+                {PROGRESS.map((p) => <option key={p} value={p}>{p}%</option>)}
+              </select>
               <select
                 value={t.status}
                 onChange={(e) => changeStatus(t.id, e.target.value as Status)}
