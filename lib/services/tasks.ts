@@ -58,6 +58,9 @@ export async function createTask(
   }
   if (!assigneeId && !teamId) assigneeId = creatorId;
 
+  // Asignat cuiva => ASSIGNED; altfel NEW
+  const status: TaskStatus = assigneeId || teamId ? "ASSIGNED" : "NEW";
+
   const task = await prisma.task.create({
     data: {
       title: input.title.trim(),
@@ -70,7 +73,7 @@ export async function createTask(
       teamId,
       projectId: input.projectId || null,
       createdFrom: source,
-      status: "PENDING",
+      status,
     },
     select: { id: true, title: true },
   });
@@ -88,6 +91,7 @@ export async function notifyNewTask(taskId: string): Promise<void> {
         title: true,
         type: true,
         priority: true,
+        status: true,
         assigneeId: true,
         teamId: true,
         assignee: { select: { name: true } },
@@ -114,7 +118,7 @@ export async function notifyNewTask(taskId: string): Promise<void> {
     ];
     if (task.assignee?.name) lines.push(`👤 Asignat: ${escapeHtml(task.assignee.name)}`);
     if (task.project?.name) lines.push(`📁 Proiect: ${escapeHtml(task.project.name)}`);
-    lines.push(`Status: <b>${TASK_STATUS_RO.PENDING}</b>`);
+    lines.push(`Status: <b>${TASK_STATUS_RO[task.status]}</b>`);
     const text = lines.join("\n");
 
     let stored = false;
@@ -196,6 +200,36 @@ export async function changeTaskStatus(
     // ignoră
   }
 
+  return { ok: true as const };
+}
+
+/** Schimbă progresul (0-100) + jurnal + notificare creator (best-effort). */
+export async function changeTaskProgress(taskId: string, actorId: string, progress: number) {
+  if (DEMO) return { ok: false as const, error: "Mod demo." };
+  const p = Math.max(0, Math.min(100, Math.round(progress)));
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, title: true, progress: true, creatorId: true },
+  });
+  if (!task) return { ok: false as const, error: "Task inexistent." };
+  if (task.progress === p) return { ok: true as const };
+
+  await prisma.task.update({ where: { id: taskId }, data: { progress: p } });
+
+  try {
+    if (task.creatorId !== actorId) {
+      const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
+      const chat = await telegramChatFor(task.creatorId);
+      if (chat) {
+        await sendMessage(
+          chat,
+          `📊 <b>${escapeHtml(actor?.name ?? "Cineva")}</b> a actualizat progresul\n«${escapeHtml(task.title)}» → <b>${p}%</b>`,
+        );
+      }
+    }
+  } catch {
+    // ignoră
+  }
   return { ok: true as const };
 }
 

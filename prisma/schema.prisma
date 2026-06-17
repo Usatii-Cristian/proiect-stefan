@@ -76,11 +76,12 @@ enum TaskType {
 }
 
 enum TaskStatus {
-  PENDING
+  NEW
+  ASSIGNED
   READ
   IN_PROGRESS
   ON_HOLD
-  BLOCKED
+  REVIEW
   DONE
   CANCELLED
 }
@@ -194,8 +195,9 @@ model Task {
   type        TaskType     @default(TASK)
   title       String
   description String?
-  status      TaskStatus   @default(PENDING)
+  status      TaskStatus   @default(NEW)
   priority    TaskPriority @default(MEDIUM)
+  progress    Int          @default(0)
 
   creatorId String @db.ObjectId
   creator   User   @relation("TaskCreator", fields: [creatorId], references: [id], onDelete: Cascade)

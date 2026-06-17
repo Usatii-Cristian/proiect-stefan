@@ -14,7 +14,7 @@ import { listByDateKey, listByDateKeys } from "../queries/appointments";
 import { searchClients } from "../queries/clients";
 import { listCategories } from "../queries/categories";
 import { createAppointment, changeStatus } from "./appointments";
-import { createTask, changeTaskStatus, notifyNewTask } from "./tasks";
+import { createTask, changeTaskStatus, changeTaskProgress, notifyNewTask } from "./tasks";
 import { transcribeAudio } from "./voice";
 import { todayKey, tomorrowKey, weekKeys, formatTime, humanDay } from "../date";
 import type { AppointmentStatus, TaskStatus } from "@prisma/client";

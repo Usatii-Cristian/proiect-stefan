@@ -128,11 +128,12 @@ export function mainMenu(): InlineButton[][] {
 }
 
 export const TASK_STATUS_RO: Record<string, string> = {
-  PENDING: "În așteptare",
+  NEW: "Nou",
+  ASSIGNED: "Asignat",
   READ: "Citit",
   IN_PROGRESS: "În lucru",
-  ON_HOLD: "Suspendat",
-  BLOCKED: "Blocat",
+  ON_HOLD: "În așteptare",
+  REVIEW: "În verificare",
   DONE: "Finalizat",
   CANCELLED: "Anulat",
 };
@@ -150,20 +151,27 @@ export const TASK_PRIORITY_RO: Record<string, string> = {
   URGENT: "Urgentă",
 };
 
-/** Butoane de status pentru un task (asignat) — tranzițiile principale. */
+/** Butoane pentru muncitor (acțiuni + progres). */
 export function taskStatusButtons(taskId: string): InlineButton[][] {
   return [
     [
-      { text: "👁 Citit", callback_data: `TST:READ:${taskId}` },
-      { text: "▶️ În lucru", callback_data: `TST:IN_PROGRESS:${taskId}` },
+      { text: "👁 Am citit", callback_data: `TST:READ:${taskId}` },
+      { text: "▶️ Încep lucrul", callback_data: `TST:IN_PROGRESS:${taskId}` },
     ],
     [
-      { text: "⏸ Suspendă", callback_data: `TST:ON_HOLD:${taskId}` },
-      { text: "⛔ Blocat", callback_data: `TST:BLOCKED:${taskId}` },
+      { text: "⏸ În așteptare", callback_data: `TST:ON_HOLD:${taskId}` },
+      { text: "👀 La verificare", callback_data: `TST:REVIEW:${taskId}` },
     ],
     [
-      { text: "✅ Finalizat", callback_data: `TST:DONE:${taskId}` },
-      { text: "✖️ Anulează", callback_data: `TST:CANCELLED:${taskId}` },
+      { text: "✅ Am finalizat", callback_data: `TST:DONE:${taskId}` },
+      { text: "✖️ Nu pot executa", callback_data: `TST:CANCELLED:${taskId}` },
+    ],
+    [
+      { text: "0%", callback_data: `TPR:0:${taskId}` },
+      { text: "25%", callback_data: `TPR:25:${taskId}` },
+      { text: "50%", callback_data: `TPR:50:${taskId}` },
+      { text: "75%", callback_data: `TPR:75:${taskId}` },
+      { text: "100%", callback_data: `TPR:100:${taskId}` },
     ],
   ];
 }
