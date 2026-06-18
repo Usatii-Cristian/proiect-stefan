@@ -37,6 +37,7 @@ export type PermissionKey =
   | "dashboard.view"
   | "reports.view"
   | "users.manage"
+  | "notifications.receive"
   | "admin";
 
 export const PERMISSION_GROUPS: {
@@ -101,6 +102,7 @@ export const PERMISSION_GROUPS: {
       { key: "dashboard.view", label: "Vizualizare dashboard" },
       { key: "reports.view", label: "Vizualizare rapoarte" },
       { key: "users.manage", label: "Gestionare utilizatori" },
+      { key: "notifications.receive", label: "Primește notificări (schimbări task)" },
       { key: "admin", label: "Acces administrativ (tot)" },
     ],
   },

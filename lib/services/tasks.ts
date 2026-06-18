@@ -9,6 +9,7 @@ import {
   TASK_TYPE_RO,
   TASK_PRIORITY_RO,
 } from "../telegram";
+import { notifyUsers, adminNotificationRecipients } from "./notifications";
 import type { TaskStatus, TaskType, TaskPriority, CreatedFrom } from "@prisma/client";
 
 export type CreateTaskInput = {
@@ -142,6 +143,18 @@ export async function notifyNewTask(taskId: string): Promise<void> {
         // ignoră eșecul per-destinatar
       }
     }
+
+    // In-app + push pentru asignat/echipă (Telegram cu butoane a fost deja trimis mai sus)
+    await notifyUsers(
+      [...recipients],
+      {
+        title: `${TASK_TYPE_RO[task.type]} nou: ${task.title}`,
+        body: task.project?.name ? `Proiect: ${task.project.name}` : undefined,
+        taskId: task.id,
+        url: "/tasks",
+      },
+      { telegram: false },
+    );
   } catch {
     // notificarea nu trebuie să afecteze nimic
   }
@@ -177,16 +190,21 @@ export async function changeTaskStatus(
 
   // Notificări best-effort (nu afectează rezultatul)
   try {
-    if (task.creatorId !== actorId) {
-      const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
-      const chat = await telegramChatFor(task.creatorId);
-      if (chat) {
-        await sendMessage(
-          chat,
-          `🔔 <b>${escapeHtml(actor?.name ?? "Cineva")}</b> a schimbat task-ul\n«${escapeHtml(task.title)}»\nstatus: <b>${TASK_STATUS_RO[newStatus]}</b>`,
-        );
-      }
-    }
+    const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
+    // Creatorul + utilizatorii aleși (permisiune), fără cel care a făcut modificarea
+    const recipients = new Set<string>([task.creatorId, ...(await adminNotificationRecipients())]);
+    recipients.delete(actorId);
+    await notifyUsers(
+      [...recipients],
+      {
+        title: `${actor?.name ?? "Cineva"} a schimbat „${task.title}"`,
+        body: `Status: ${TASK_STATUS_RO[newStatus]}`,
+        taskId: task.id,
+        url: "/tasks",
+      },
+      { telegram: true },
+    );
+
     if (opts.fromTelegram && task.telegramChatId && task.telegramMessageId) {
       const closed = newStatus === "DONE" || newStatus === "CANCELLED";
       await editMessageText(
@@ -217,16 +235,19 @@ export async function changeTaskProgress(taskId: string, actorId: string, progre
   await prisma.task.update({ where: { id: taskId }, data: { progress: p } });
 
   try {
-    if (task.creatorId !== actorId) {
-      const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
-      const chat = await telegramChatFor(task.creatorId);
-      if (chat) {
-        await sendMessage(
-          chat,
-          `📊 <b>${escapeHtml(actor?.name ?? "Cineva")}</b> a actualizat progresul\n«${escapeHtml(task.title)}» → <b>${p}%</b>`,
-        );
-      }
-    }
+    const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
+    const recipients = new Set<string>([task.creatorId, ...(await adminNotificationRecipients())]);
+    recipients.delete(actorId);
+    await notifyUsers(
+      [...recipients],
+      {
+        title: `${actor?.name ?? "Cineva"} a actualizat progresul`,
+        body: `„${task.title}" → ${p}%`,
+        taskId: task.id,
+        url: "/tasks",
+      },
+      { telegram: true },
+    );
   } catch {
     // ignoră
   }
