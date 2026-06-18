@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTeam,
@@ -32,6 +32,15 @@ export default function TeamsManager({ teams, users }: { teams: Team[]; users: O
     team: null,
   });
 
+  const [fSearch, setFSearch] = useState("");
+  const filtered = useMemo(() => {
+    const term = fSearch.trim().toLowerCase();
+    if (!term) return rows;
+    return rows.filter((t) =>
+      `${t.name} ${t.members.map((m) => m.name).join(" ")}`.toLowerCase().includes(term),
+    );
+  }, [rows, fSearch]);
+
   function remove(id: string) {
     if (!confirm("Ștergi echipa?")) return;
     const prev = rows;
@@ -53,11 +62,20 @@ export default function TeamsManager({ teams, users }: { teams: Team[]; users: O
         + Echipă nouă
       </button>
 
+      <input
+        value={fSearch}
+        onChange={(e) => setFSearch(e.target.value)}
+        placeholder="Caută echipă sau membru…"
+        className="mb-3 h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
+      />
+
       {rows.length === 0 ? (
         <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">Nicio echipă.</div>
+      ) : filtered.length === 0 ? (
+        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">Niciun rezultat.</div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {rows.map((t) => (
+          {filtered.map((t) => (
             <div key={t.id} className="card flex items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{t.name}</p>

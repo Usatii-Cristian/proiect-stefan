@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createUser,
@@ -34,6 +34,19 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
     open: false,
     user: null,
   });
+
+  const [fSearch, setFSearch] = useState("");
+  const [fRole, setFRole] = useState("");
+  const filtered = useMemo(() => {
+    const term = fSearch.trim().toLowerCase();
+    return rows.filter((u) => {
+      if (fRole === "ADMIN" && u.role !== "ADMIN") return false;
+      if (fRole === "STAFF" && u.role !== "STAFF") return false;
+      if (fRole === "INACTIVE" && u.isActive) return false;
+      if (term && !`${u.name} ${u.email}`.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [rows, fSearch, fRole]);
 
   function toggle(u: UserRow) {
     const next = !u.isActive;
@@ -69,8 +82,33 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
         + Utilizator nou
       </button>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input
+          value={fSearch}
+          onChange={(e) => setFSearch(e.target.value)}
+          placeholder="Caută după nume sau email…"
+          className="h-9 min-w-40 flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
+        />
+        <select value={fRole} onChange={(e) => setFRole(e.target.value)} className="h-9 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand">
+          <option value="">Toți</option>
+          <option value="ADMIN">Administratori</option>
+          <option value="STAFF">Staff</option>
+          <option value="INACTIVE">Dezactivați</option>
+        </select>
+        {(fSearch || fRole) && (
+          <button onClick={() => { setFSearch(""); setFRole(""); }} className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]">
+            Resetează
+          </button>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">
+          {rows.length === 0 ? "Niciun utilizator." : "Niciun rezultat pentru filtre."}
+        </div>
+      ) : (
       <div className="flex flex-col gap-2.5">
-        {rows.map((u) => (
+        {filtered.map((u) => (
           <div key={u.id} className="card flex items-center gap-3 p-3">
             <div className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
               {u.name.slice(0, 1).toUpperCase()}
@@ -108,6 +146,7 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
           </div>
         ))}
       </div>
+      )}
 
       {dialog.open && (
         <UserDialog user={dialog.user} onClose={() => setDialog({ open: false, user: null })} />

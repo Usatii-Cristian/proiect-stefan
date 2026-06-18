@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -49,6 +49,18 @@ export default function ProjectsManager({
     project: null,
   });
 
+  // Filtre client-side (instant)
+  const [fSearch, setFSearch] = useState("");
+  const [fStatus, setFStatus] = useState("");
+  const filtered = useMemo(() => {
+    const term = fSearch.trim().toLowerCase();
+    return rows.filter((p) => {
+      if (fStatus && p.status !== fStatus) return false;
+      if (term && !`${p.name} ${p.description ?? ""}`.toLowerCase().includes(term)) return false;
+      return true;
+    });
+  }, [rows, fSearch, fStatus]);
+
   const nameOf = (id: string | null, list: Opt[]) => list.find((o) => o.id === id)?.name;
 
   function remove(id: string) {
@@ -67,16 +79,39 @@ export default function ProjectsManager({
     <>
       <button
         onClick={() => setDialog({ open: true, project: null })}
-        className="tap mb-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong"
+        className="tap mb-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong"
       >
         + Proiect nou
       </button>
 
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <input
+          value={fSearch}
+          onChange={(e) => setFSearch(e.target.value)}
+          placeholder="Caută proiect…"
+          className="h-9 min-w-40 flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
+        />
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="h-9 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand">
+          <option value="">Status: toate</option>
+          <option value="ACTIVE">Activ</option>
+          <option value="ON_HOLD">În așteptare</option>
+          <option value="DONE">Finalizat</option>
+          <option value="ARCHIVED">Arhivat</option>
+        </select>
+        {(fSearch || fStatus) && (
+          <button onClick={() => { setFSearch(""); setFStatus(""); }} className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]">
+            Resetează
+          </button>
+        )}
+      </div>
+
       {rows.length === 0 ? (
         <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">Niciun proiect.</div>
+      ) : filtered.length === 0 ? (
+        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">Niciun rezultat pentru filtre.</div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {rows.map((p) => (
+          {filtered.map((p) => (
             <div key={p.id} className="card flex items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{p.name}</p>
