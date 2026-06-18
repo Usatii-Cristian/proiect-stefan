@@ -19,6 +19,7 @@ const NAV: NavItem[] = [
   { href: "/invoices", label: "Facturi", icon: invoiceIcon(), perm: "invoices.view" },
   { href: "/clients", label: "Clienți", icon: usersIcon(), perm: "clients.view" },
   { href: "/users", label: "Utilizatori", icon: userIcon(), perm: "users.manage" },
+  { href: "/admin/audit-logs", label: "Audit Logs", icon: shieldIcon(), perm: "audit.view" },
   { href: "/telegram", label: "Telegram", icon: sendIcon() },
   { href: "/settings", label: "Setări", icon: gearIcon() },
 ];
@@ -242,6 +243,9 @@ function calIcon() {
 }
 function kanbanIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M5 3v18M12 3v12M19 3v8"/></svg>;
+}
+function shieldIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3 5 6v6c0 4 3 6.5 7 9 4-2.5 7-5 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg>;
 }
 function usersIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M16 6a3 3 0 0 1 0 6M18.5 20a5 5 0 0 0-2.5-4"/></svg>;

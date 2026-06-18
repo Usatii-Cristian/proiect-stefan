@@ -2,12 +2,17 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/dal";
+import { requireUser, isSuper, type CurrentUser } from "@/lib/dal";
 import { can, ALL_PERMISSION_KEYS } from "@/lib/permissions";
 import { hashPassword } from "@/lib/password";
 import { DEMO } from "@/lib/demo";
+import { logAudit } from "@/lib/services/audit";
 
 export type UserState = { ok?: boolean; error?: string; id?: string } | undefined;
+
+const actor = (u: CurrentUser) => ({ id: u.id, name: u.name, role: u.role, isSuperAdmin: u.isSuperAdmin });
+const sameSet = (a: string[], b: string[]) =>
+  a.length === b.length && [...a].sort().join("|") === [...b].sort().join("|");
 
 function invalidate() {
   revalidatePath("/users");
@@ -54,6 +59,13 @@ export async function createUser(
     },
     select: { id: true },
   });
+  await logAudit(actor(user), {
+    action: "user.create",
+    module: "Users",
+    objectId: created.id,
+    objectName: name,
+    newValue: JSON.stringify({ role, isActive }),
+  });
   invalidate();
   return { ok: true, id: created.id };
 }
@@ -73,17 +85,44 @@ export async function updateUser(
   const newPassword = String(formData.get("password") ?? "");
   if (name.length < 2) return { error: "Nume prea scurt." };
 
+  const before = await prisma.user.findUnique({
+    where: { id },
+    select: { name: true, role: true, isActive: true, permissions: true },
+  });
+  const newPerms = role === "ADMIN" ? [] : parsePerms(formData);
+
   await prisma.user.update({
     where: { id },
     data: {
       name,
       role,
       isActive,
-      permissions: role === "ADMIN" ? [] : parsePerms(formData),
+      permissions: newPerms,
       telegramChatId: String(formData.get("telegramChatId") ?? "").trim() || null,
       ...(newPassword.length >= 8 ? { passwordHash: await hashPassword(newPassword) } : {}),
     },
   });
+
+  const a = actor(admin);
+  await logAudit(a, {
+    action: "user.update",
+    module: "Users",
+    objectId: id,
+    objectName: name,
+    oldValue: before ? JSON.stringify({ role: before.role, isActive: before.isActive }) : null,
+    newValue: JSON.stringify({ role, isActive }),
+  });
+  // Log dedicat la schimbarea permisiunilor
+  if (before && !sameSet(before.permissions, newPerms)) {
+    await logAudit(a, {
+      action: "user.permissions_change",
+      module: "Users",
+      objectId: id,
+      objectName: name,
+      oldValue: before.permissions.join(", ") || "—",
+      newValue: newPerms.join(", ") || "—",
+    });
+  }
   invalidate();
   return { ok: true, id };
 }
@@ -93,9 +132,16 @@ export async function toggleUserActive(id: string, active: boolean): Promise<voi
   const admin = await requireUser();
   if (!can(admin, "users.manage")) return;
   if (DEMO) return;
+  const target = await prisma.user.findUnique({ where: { id }, select: { name: true } });
   await prisma.user.update({ where: { id }, data: { isActive: active } });
   // La dezactivare, invalidează sesiunile
   if (!active) await prisma.session.deleteMany({ where: { userId: id } });
+  await logAudit(actor(admin), {
+    action: active ? "user.activate" : "user.deactivate",
+    module: "Users",
+    objectId: id,
+    objectName: target?.name ?? null,
+  });
   invalidate();
 }
 
@@ -106,6 +152,7 @@ export async function deleteUser(id: string): Promise<UserState> {
   if (DEMO) return { error: "Mod demo." };
   if (id === admin.id) return { error: "Nu te poți șterge pe tine." };
 
+  const target = await prisma.user.findUnique({ where: { id }, select: { name: true } });
   // Reasignează datele importante adminului (evităm pierderea task-urilor/proiectelor create)
   await prisma.task.updateMany({ where: { creatorId: id }, data: { creatorId: admin.id } });
   await prisma.project.updateMany({ where: { ownerId: id }, data: { ownerId: admin.id } });
@@ -119,6 +166,46 @@ export async function deleteUser(id: string): Promise<UserState> {
   } catch {
     return { error: "Nu am putut șterge (are date legate). Dezactivează-l în schimb." };
   }
+  await logAudit(actor(admin), {
+    action: "user.delete",
+    module: "Users",
+    objectId: id,
+    objectName: target?.name ?? null,
+  });
   invalidate();
   return { ok: true };
+}
+
+/**
+ * Acordă/retrage statutul de super-admin. Doar un super-admin poate.
+ * Protecție: nu poate fi retras ultimul super-admin (evită blocarea totală).
+ */
+export async function setSuperAdmin(id: string, value: boolean): Promise<UserState> {
+  const admin = await requireUser();
+  if (!isSuper(admin)) return { error: "Doar un super-admin poate face asta." };
+  if (DEMO) return { error: "Mod demo." };
+
+  const target = await prisma.user.findUnique({
+    where: { id },
+    select: { name: true, isSuperAdmin: true },
+  });
+  if (!target) return { error: "Utilizator inexistent." };
+  if (target.isSuperAdmin === value) return { ok: true, id };
+
+  if (!value) {
+    const supers = await prisma.user.count({ where: { isSuperAdmin: true } });
+    if (supers <= 1) return { error: "Nu poți retrage ultimul super-admin." };
+  }
+
+  await prisma.user.update({ where: { id }, data: { isSuperAdmin: value } });
+  await logAudit(actor(admin), {
+    action: "user.superadmin_change",
+    module: "Users",
+    objectId: id,
+    objectName: target.name,
+    oldValue: target.isSuperAdmin ? "super-admin" : "normal",
+    newValue: value ? "super-admin" : "normal",
+  });
+  invalidate();
+  return { ok: true, id };
 }

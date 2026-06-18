@@ -7,6 +7,7 @@ import {
   updateUser,
   toggleUserActive,
   deleteUser,
+  setSuperAdmin,
   type UserState,
 } from "@/app/actions/users";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
@@ -19,6 +20,7 @@ type UserRow = {
   email: string;
   role: "ADMIN" | "STAFF";
   isActive: boolean;
+  isSuperAdmin: boolean;
   permissions: string[];
   telegramChatId: string | null;
 };
@@ -26,7 +28,13 @@ type UserRow = {
 const input =
   "h-11 w-full rounded-xl border border-[var(--color-line)] bg-[var(--color-surface-2)] px-3 text-sm outline-none focus:border-brand";
 
-export default function UsersManager({ users }: { users: UserRow[] }) {
+export default function UsersManager({
+  users,
+  viewerIsSuper = false,
+}: {
+  users: UserRow[];
+  viewerIsSuper?: boolean;
+}) {
   const toast = useToast();
   const [rows, setRows] = useState(users);
   useEffect(() => setRows(users), [users]);
@@ -57,6 +65,20 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
         setRows((r) => r.map((x) => (x.id === u.id ? { ...x, isActive: !next } : x)));
         toast.error("Acțiunea a eșuat");
       });
+  }
+
+  function toggleSuper(u: UserRow) {
+    const next = !u.isSuperAdmin;
+    if (!next && !confirm(`Retragi statutul de super-admin pentru „${u.name}"?`)) return;
+    setRows((r) => r.map((x) => (x.id === u.id ? { ...x, isSuperAdmin: next } : x))); // optimistic
+    setSuperAdmin(u.id, next).then((res) => {
+      if (res?.error) {
+        setRows((r) => r.map((x) => (x.id === u.id ? { ...x, isSuperAdmin: !next } : x)));
+        toast.error(res.error);
+      } else {
+        toast.success(next ? "Promovat la super-admin" : "Super-admin retras");
+      }
+    });
   }
 
   function remove(u: UserRow) {
@@ -116,6 +138,9 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">
                 {u.name}
+                {u.isSuperAdmin && (
+                  <span className="ml-2 rounded bg-brand-soft px-1.5 py-0.5 text-[10px] font-bold uppercase text-brand-strong">Super</span>
+                )}
                 {!u.isActive && <span className="ml-2 text-xs text-st-cancelled">dezactivat</span>}
               </p>
               <p className="truncate text-xs text-ink-soft">
@@ -123,6 +148,19 @@ export default function UsersManager({ users }: { users: UserRow[] }) {
                 {u.telegramChatId ? " · ✈ Telegram" : ""}
               </p>
             </div>
+            {viewerIsSuper && (
+              <button
+                onClick={() => toggleSuper(u)}
+                className={`tap rounded-lg border px-2.5 py-1.5 text-xs ${
+                  u.isSuperAdmin
+                    ? "border-brand bg-brand-soft text-brand-strong"
+                    : "border-[var(--color-line)] hover:bg-[var(--color-surface-2)]"
+                }`}
+                title={u.isSuperAdmin ? "Retrage super-admin" : "Fă super-admin"}
+              >
+                {u.isSuperAdmin ? "Super ✓" : "Super"}
+              </button>
+            )}
             <button
               onClick={() => toggle(u)}
               className="tap rounded-lg border border-[var(--color-line)] px-2.5 py-1.5 text-xs hover:bg-[var(--color-surface-2)]"

@@ -8,6 +8,8 @@ import { createSession, destroySession } from "@/lib/session";
 import { loginSchema } from "@/lib/validation";
 import { ensureDefaultCategories } from "@/lib/queries/categories";
 import { getSettings } from "@/lib/queries/settings";
+import { getCurrentUser } from "@/lib/dal";
+import { logAudit } from "@/lib/services/audit";
 import { DEMO } from "@/lib/demo";
 
 export type AuthState = { error?: string } | undefined;
@@ -41,10 +43,10 @@ export async function login(
 
   const user = await prisma.user.findUnique({
     where: { email: parsed.data.email },
-    select: { id: true, passwordHash: true },
+    select: { id: true, passwordHash: true, name: true, role: true, isSuperAdmin: true, isActive: true },
   });
 
-  if (!user) {
+  if (!user || !user.isActive) {
     return { error: "Email sau parolă greșite." };
   }
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);
@@ -53,6 +55,10 @@ export async function login(
   }
 
   await createSession(user.id, await requestMeta());
+  await logAudit(
+    { id: user.id, name: user.name, role: user.role, isSuperAdmin: user.isSuperAdmin },
+    { action: "auth.login", module: "Auth" },
+  );
   redirect(safeNext(formData.get("next")));
 }
 
@@ -96,6 +102,13 @@ export async function register(
 
 export async function logout(): Promise<void> {
   if (DEMO) redirect("/dashboard");
+  const current = await getCurrentUser();
+  if (current) {
+    await logAudit(
+      { id: current.id, name: current.name, role: current.role, isSuperAdmin: current.isSuperAdmin },
+      { action: "auth.logout", module: "Auth" },
+    );
+  }
   await destroySession();
   redirect("/login");
 }

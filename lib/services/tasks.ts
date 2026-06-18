@@ -174,6 +174,7 @@ export async function changeTaskStatus(
     select: {
       id: true,
       title: true,
+      type: true,
       status: true,
       creatorId: true,
       telegramChatId: true,
@@ -181,7 +182,9 @@ export async function changeTaskStatus(
     },
   });
   if (!task) return { ok: false as const, error: "Task inexistent." };
-  if (task.status === newStatus) return { ok: true as const };
+  if (task.status === newStatus) {
+    return { ok: true as const, changed: false, fromStatus: task.status, title: task.title, type: task.type };
+  }
 
   await prisma.task.update({ where: { id: taskId }, data: { status: newStatus } });
   await prisma.taskActivity
@@ -218,7 +221,7 @@ export async function changeTaskStatus(
     // ignoră
   }
 
-  return { ok: true as const };
+  return { ok: true as const, changed: true, fromStatus: task.status, title: task.title, type: task.type };
 }
 
 /** Schimbă progresul (0-100) + jurnal + notificare creator (best-effort). */
@@ -227,10 +230,12 @@ export async function changeTaskProgress(taskId: string, actorId: string, progre
   const p = Math.max(0, Math.min(100, Math.round(progress)));
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: { id: true, title: true, progress: true, creatorId: true },
+    select: { id: true, title: true, type: true, progress: true, creatorId: true },
   });
   if (!task) return { ok: false as const, error: "Task inexistent." };
-  if (task.progress === p) return { ok: true as const };
+  if (task.progress === p) {
+    return { ok: true as const, changed: false, fromProgress: task.progress, title: task.title, type: task.type };
+  }
 
   await prisma.task.update({ where: { id: taskId }, data: { progress: p } });
 
@@ -251,7 +256,7 @@ export async function changeTaskProgress(taskId: string, actorId: string, progre
   } catch {
     // ignoră
   }
-  return { ok: true as const };
+  return { ok: true as const, changed: true, fromProgress: task.progress, title: task.title, type: task.type };
 }
 
 function escapeHtml(s: string): string {

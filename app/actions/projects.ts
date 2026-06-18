@@ -2,12 +2,15 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/dal";
+import { requireUser, type CurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
+import { logAudit } from "@/lib/services/audit";
 import type { ProjectStatus } from "@prisma/client";
 
 export type ProjectState = { ok?: boolean; error?: string; id?: string } | undefined;
+
+const actor = (u: CurrentUser) => ({ id: u.id, name: u.name, role: u.role, isSuperAdmin: u.isSuperAdmin });
 
 const STATUSES: ProjectStatus[] = ["ACTIVE", "ON_HOLD", "DONE", "ARCHIVED"];
 
@@ -44,6 +47,7 @@ export async function createProject(
     },
     select: { id: true },
   });
+  await logAudit(actor(user), { action: "project.create", module: "Projects", objectId: p.id, objectName: d.name });
   revalidatePath("/projects");
   revalidateTag("projects", "max");
   return { ok: true, id: p.id };
@@ -64,6 +68,7 @@ export async function quickCreateProject(name: string): Promise<QuickCreateResul
     data: { name: n, status: "ACTIVE", ownerId: user.id },
     select: { id: true, name: true },
   });
+  await logAudit(actor(user), { action: "project.create", module: "Projects", objectId: p.id, objectName: p.name });
   revalidatePath("/projects");
   revalidateTag("projects", "max");
   return { ok: true, id: p.id, name: p.name };
@@ -79,6 +84,7 @@ export async function updateProject(
   const id = String(formData.get("id") ?? "");
   const d = parse(formData);
   if (!d.name) return { error: "Numele e obligatoriu." };
+  const before = await prisma.project.findUnique({ where: { id }, select: { name: true, status: true } });
   await prisma.project.update({
     where: { id },
     data: {
@@ -90,6 +96,14 @@ export async function updateProject(
       teamId: d.teamId,
     },
   });
+  await logAudit(actor(user), {
+    action: "project.update",
+    module: "Projects",
+    objectId: id,
+    objectName: d.name,
+    oldValue: before ? JSON.stringify(before) : null,
+    newValue: JSON.stringify({ name: d.name, status: d.status }),
+  });
   revalidatePath("/projects");
   revalidateTag("projects", "max");
   return { ok: true, id };
@@ -99,9 +113,11 @@ export async function deleteProject(id: string): Promise<void> {
   const user = await requireUser();
   if (!can(user, "projects.delete")) return;
   if (DEMO) return;
+  const proj = await prisma.project.findUnique({ where: { id }, select: { name: true } });
   // Detașează task-urile (nu le ștergem)
   await prisma.task.updateMany({ where: { projectId: id }, data: { projectId: null } });
   await prisma.project.delete({ where: { id } }).catch(() => {});
+  await logAudit(actor(user), { action: "project.delete", module: "Projects", objectId: id, objectName: proj?.name ?? null });
   revalidatePath("/projects");
   revalidateTag("projects", "max");
 }

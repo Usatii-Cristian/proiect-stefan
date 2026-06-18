@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
+import { logAudit } from "@/lib/services/audit";
 
 export type CompanyState = { ok?: boolean; error?: string } | undefined;
 
@@ -48,6 +49,11 @@ export async function updateCompanySettings(
     create: { singleton: "main", ...data },
     update: data,
   });
+
+  await logAudit(
+    { id: user.id, name: user.name, role: user.role, isSuperAdmin: user.isSuperAdmin },
+    { action: "settings.update", module: "Settings", objectName: companyName },
+  );
 
   revalidatePath("/settings");
   revalidateTag("company", "max");

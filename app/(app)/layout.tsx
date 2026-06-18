@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/dal";
+import { requireUser, isSuper } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
 import { unreadCount } from "@/lib/queries/notifications";
@@ -24,6 +24,7 @@ export default async function AppLayout({
     "clients.view": can(user, "clients.view"),
     "appointments.view": can(user, "appointments.view"),
     "users.manage": can(user, "users.manage"),
+    "audit.view": isSuper(user),
   };
 
   return (

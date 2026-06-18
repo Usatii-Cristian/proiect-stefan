@@ -24,6 +24,7 @@ export const demoUser: CurrentUser = {
   role: "ADMIN",
   permissions: [],
   isActive: true,
+  isSuperAdmin: true,
   teamIds: [],
 };
 

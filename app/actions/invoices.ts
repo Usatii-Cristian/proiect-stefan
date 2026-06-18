@@ -2,11 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/dal";
+import { requireUser, type CurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
 import { createInvoice, updateInvoice } from "@/lib/services/invoices";
+import { logAudit } from "@/lib/services/audit";
 import type { InvoiceStatus } from "@prisma/client";
+
+const actor = (u: CurrentUser) => ({ id: u.id, name: u.name, role: u.role, isSuperAdmin: u.isSuperAdmin });
 
 export type InvoicePayload = {
   id?: string;
@@ -58,6 +61,14 @@ export async function saveInvoice(payload: InvoicePayload): Promise<InvoiceActio
     : await createInvoice(user.id, input);
 
   if (!res.ok) return { ok: false, error: res.error };
+  const inv = await prisma.invoice.findUnique({ where: { id: res.id }, select: { number: true } });
+  await logAudit(actor(user), {
+    action: payload.id ? "invoice.update" : "invoice.create",
+    module: "Invoices",
+    objectId: res.id,
+    objectName: inv?.number ?? null,
+    newValue: status,
+  });
   revalidatePath("/invoices");
   return { ok: true, id: res.id };
 }
@@ -70,7 +81,16 @@ export async function setInvoiceStatus(
   if (!can(user, "invoices.edit")) return { ok: false, error: "Fără permisiune." };
   if (DEMO) return { ok: false, error: "Mod demo." };
   if (!STATUSES.includes(status as InvoiceStatus)) return { ok: false, error: "Status invalid." };
+  const before = await prisma.invoice.findUnique({ where: { id }, select: { number: true, status: true } });
   await prisma.invoice.update({ where: { id }, data: { status: status as InvoiceStatus } });
+  await logAudit(actor(user), {
+    action: "invoice.status_change",
+    module: "Invoices",
+    objectId: id,
+    objectName: before?.number ?? null,
+    oldValue: before?.status ?? null,
+    newValue: status,
+  });
   revalidatePath("/invoices");
   return { ok: true };
 }
@@ -79,7 +99,9 @@ export async function deleteInvoice(id: string): Promise<void> {
   const user = await requireUser();
   if (!can(user, "invoices.delete")) return;
   if (DEMO) return;
+  const inv = await prisma.invoice.findUnique({ where: { id }, select: { number: true } });
   await prisma.invoiceItem.deleteMany({ where: { invoiceId: id } });
   await prisma.invoice.delete({ where: { id } }).catch(() => {});
+  await logAudit(actor(user), { action: "invoice.delete", module: "Invoices", objectId: id, objectName: inv?.number ?? null });
   revalidatePath("/invoices");
 }

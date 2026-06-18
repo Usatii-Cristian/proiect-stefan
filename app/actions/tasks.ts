@@ -13,9 +13,14 @@ import {
   notifyNewTask,
 } from "@/lib/services/tasks";
 import { taskHistory, type TaskHistoryRow } from "@/lib/queries/tasks";
+import { logAudit } from "@/lib/services/audit";
+import { TASK_STATUS_RO } from "@/lib/telegram";
 import type { TaskStatus, TaskType, TaskPriority } from "@prisma/client";
 
 export type TaskState = { ok?: boolean; error?: string; id?: string } | undefined;
+
+const moduleForType = (t: TaskType) => (t === "TICKET" ? "Tickets" : "Tasks");
+const prefixForType = (t: TaskType) => (t === "TICKET" ? "ticket" : "task");
 
 const TYPES: TaskType[] = ["TASK", "TICKET", "WORK_ORDER"];
 const PRIORITIES: TaskPriority[] = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -71,6 +76,10 @@ export async function createTaskAction(
   if (!res.ok) return { error: res.error };
   // Notificare Telegram în fundal — nu blochează și nu poate face crearea să eșueze
   after(() => notifyNewTask(res.id));
+  await logAudit(
+    { id: user.id, name: user.name, role: user.role, isSuperAdmin: user.isSuperAdmin },
+    { action: `${prefixForType(type)}.create`, module: moduleForType(type), objectId: res.id, objectName: title },
+  );
   revalidateTasks();
   return { ok: true, id: res.id };
 }
@@ -81,6 +90,19 @@ export async function setTaskStatus(id: string, status: string): Promise<TaskSta
   if (!STATUSES.includes(status as TaskStatus)) return { error: "Status invalid." };
   const res = await changeTaskStatus(id, user.id, status as TaskStatus);
   if (!res.ok) return { error: res.error };
+  if (res.changed) {
+    await logAudit(
+      { id: user.id, name: user.name, role: user.role, isSuperAdmin: user.isSuperAdmin },
+      {
+        action: `${prefixForType(res.type)}.status_change`,
+        module: moduleForType(res.type),
+        objectId: id,
+        objectName: res.title,
+        oldValue: TASK_STATUS_RO[res.fromStatus],
+        newValue: TASK_STATUS_RO[status as TaskStatus],
+      },
+    );
+  }
   revalidateTasks();
   return { ok: true };
 }
@@ -90,6 +112,19 @@ export async function setTaskProgress(id: string, progress: number): Promise<Tas
   const user = await requireUser();
   const res = await changeTaskProgress(id, user.id, progress);
   if (!res.ok) return { error: res.error };
+  if (res.changed) {
+    await logAudit(
+      { id: user.id, name: user.name, role: user.role, isSuperAdmin: user.isSuperAdmin },
+      {
+        action: "task.progress_change",
+        module: moduleForType(res.type),
+        objectId: id,
+        objectName: res.title,
+        oldValue: `${res.fromProgress}%`,
+        newValue: `${progress}%`,
+      },
+    );
+  }
   revalidateTasks();
   return { ok: true };
 }
@@ -105,7 +140,14 @@ export async function deleteTask(id: string): Promise<void> {
   const user = await requireUser();
   if (!can(user, "tasks.delete")) return;
   if (DEMO) return;
+  const task = await prisma.task.findUnique({ where: { id }, select: { title: true, type: true } });
   await prisma.taskActivity.deleteMany({ where: { taskId: id } });
   await prisma.task.delete({ where: { id } }).catch(() => {});
+  if (task) {
+    await logAudit(
+      { id: user.id, name: user.name, role: user.role, isSuperAdmin: user.isSuperAdmin },
+      { action: `${prefixForType(task.type)}.delete`, module: moduleForType(task.type), objectId: id, objectName: task.title },
+    );
+  }
   revalidateTasks();
 }

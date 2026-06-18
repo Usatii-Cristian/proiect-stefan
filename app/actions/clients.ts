@@ -2,12 +2,15 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/dal";
+import { requireUser, type CurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { clientSchema } from "@/lib/validation";
 import { DEMO } from "@/lib/demo";
+import { logAudit } from "@/lib/services/audit";
 
 export type ClientState = { ok?: boolean; error?: string; id?: string } | undefined;
+
+const actor = (u: CurrentUser) => ({ id: u.id, name: u.name, role: u.role, isSuperAdmin: u.isSuperAdmin });
 
 const DEMO_MSG = "Mod demo: conectează o bază de date pentru a salva.";
 
@@ -45,6 +48,7 @@ export async function createClient(
     },
     select: { id: true },
   });
+  await logAudit(actor(user), { action: "client.create", module: "Clients", objectId: client.id, objectName: d.name });
   revalidatePath("/clients");
   revalidateTag("clients", "max");
   return { ok: true, id: client.id };
@@ -65,6 +69,7 @@ export async function quickCreateClient(name: string): Promise<QuickCreateResult
     data: { userId: user.id, name: n },
     select: { id: true, name: true },
   });
+  await logAudit(actor(user), { action: "client.create", module: "Clients", objectId: client.id, objectName: client.name });
   revalidatePath("/clients");
   revalidateTag("clients", "max");
   return { ok: true, id: client.id, name: client.name };
@@ -80,7 +85,7 @@ export async function updateClient(
   const id = String(formData.get("id") ?? "");
   const owned = await prisma.client.findFirst({
     where: { id, userId: user.id },
-    select: { id: true },
+    select: { id: true, name: true, phone: true, email: true },
   });
   if (!owned) return { error: "Client inexistent." };
 
@@ -105,6 +110,14 @@ export async function updateClient(
       notes: d.notes || null,
     },
   });
+  await logAudit(actor(user), {
+    action: "client.update",
+    module: "Clients",
+    objectId: id,
+    objectName: d.name,
+    oldValue: JSON.stringify({ name: owned.name, phone: owned.phone, email: owned.email }),
+    newValue: JSON.stringify({ name: d.name, phone: d.phone || null, email: d.email || null }),
+  });
   revalidatePath("/clients");
   revalidateTag("clients", "max");
   return { ok: true, id };
@@ -114,7 +127,9 @@ export async function deleteClient(id: string): Promise<void> {
   const user = await requireUser();
   if (!can(user, "clients.delete")) return;
   if (DEMO) return;
+  const c = await prisma.client.findFirst({ where: { id, userId: user.id }, select: { name: true } });
   await prisma.client.deleteMany({ where: { id, userId: user.id } });
+  await logAudit(actor(user), { action: "client.delete", module: "Clients", objectId: id, objectName: c?.name ?? null });
   revalidatePath("/clients");
   revalidateTag("clients", "max");
 }

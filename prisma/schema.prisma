@@ -119,6 +119,8 @@ model User {
   passwordHash String
   role         UserRole @default(ADMIN)
   isActive     Boolean  @default(true)
+  // Super-admin: vede Audit Logs și gestionează ceilalți super-admini (peste rolul ADMIN)
+  isSuperAdmin Boolean  @default(false)
   // Permisiuni individuale (chei din lib/permissions.ts). ADMIN le are pe toate.
   permissions  String[] @default([])
   // Chat ID Telegram setat manual de admin (pentru notificări), independent de linkarea prin bot
@@ -160,6 +162,29 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId, read, createdAt])
+}
+
+// Audit log — fără relație la User intenționat: logurile rămân chiar dacă userul
+// sau obiectul (task/client/proiect) e șters. Date denormalizate (snapshot).
+model AuditLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String?  @db.ObjectId // cine a făcut acțiunea (poate fi șters ulterior)
+  userName   String                // snapshot nume
+  userRole   String                // snapshot rol (ADMIN/STAFF, + SUPER dacă e cazul)
+  action     String                // ex: task.create, task.status_change, auth.login
+  module     String                // Tasks/Tickets/Projects/Clients/Invoices/Users/Settings/Auth/Notifications
+  objectId   String?               // id-ul obiectului afectat
+  objectName String?               // nume/titlu snapshot
+  oldValue   String?               // valoare veche (text sau JSON)
+  newValue   String?               // valoare nouă
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([module, createdAt])
 }
 
 model Team {

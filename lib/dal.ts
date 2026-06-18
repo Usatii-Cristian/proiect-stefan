@@ -12,8 +12,14 @@ export type CurrentUser = {
   role: "ADMIN" | "STAFF";
   permissions: string[];
   isActive: boolean;
+  isSuperAdmin: boolean;
   teamIds: string[];
 };
+
+/** Super-admin: acces la Audit Logs + gestionarea celorlalți super-admini. */
+export function isSuper(user: { isSuperAdmin?: boolean } | null | undefined): boolean {
+  return user?.isSuperAdmin === true;
+}
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
 
@@ -37,6 +43,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       role: "ADMIN",
       permissions: [],
       isActive: true,
+      isSuperAdmin: true,
       teamIds: [],
     };
   }
@@ -57,6 +64,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
           role: true,
           permissions: true,
           isActive: true,
+          isSuperAdmin: true,
           teamIds: true,
         },
       },
@@ -93,5 +101,12 @@ export const requireUser = cache(async (): Promise<CurrentUser> => {
 export async function requirePermission(key: PermissionKey): Promise<CurrentUser> {
   const user = await requireUser();
   if (!can(user, key)) redirect("/dashboard");
+  return user;
+}
+
+/** Pagini doar pentru super-admin (ex: Audit Logs). */
+export async function requireSuperAdmin(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!isSuper(user)) redirect("/dashboard");
   return user;
 }
