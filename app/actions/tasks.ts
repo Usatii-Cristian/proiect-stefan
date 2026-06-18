@@ -12,6 +12,7 @@ import {
   changeTaskProgress,
   notifyNewTask,
 } from "@/lib/services/tasks";
+import { taskHistory, type TaskHistoryRow } from "@/lib/queries/tasks";
 import type { TaskStatus, TaskType, TaskPriority } from "@prisma/client";
 
 export type TaskState = { ok?: boolean; error?: string; id?: string } | undefined;
@@ -91,6 +92,13 @@ export async function setTaskProgress(id: string, progress: number): Promise<Tas
   if (!res.ok) return { error: res.error };
   revalidateTasks();
   return { ok: true };
+}
+
+/** Istoricul de status (timeline) — lazy, la expandarea unui task. */
+export async function getTaskHistory(id: string): Promise<TaskHistoryRow[]> {
+  const user = await requireUser();
+  if (!can(user, "tasks.view")) return [];
+  return taskHistory(id);
 }
 
 export async function deleteTask(id: string): Promise<void> {

@@ -182,6 +182,40 @@ export async function dashboardStats(userId: string, teamIds: string[]) {
   };
 }
 
+export type TaskHistoryRow = {
+  id: string;
+  fromStatus: TaskStatus | null;
+  toStatus: TaskStatus;
+  note: string | null;
+  createdAt: Date;
+  userName: string;
+};
+
+/** Istoricul de status al unui task (timeline cu timestamp). */
+export async function taskHistory(taskId: string): Promise<TaskHistoryRow[]> {
+  if (DEMO) return [];
+  const rows = await prisma.taskActivity.findMany({
+    where: { taskId },
+    select: {
+      id: true,
+      fromStatus: true,
+      toStatus: true,
+      note: true,
+      createdAt: true,
+      user: { select: { name: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    fromStatus: r.fromStatus,
+    toStatus: r.toStatus,
+    note: r.note,
+    createdAt: r.createdAt,
+    userName: r.user?.name ?? "—",
+  }));
+}
+
 /** Activitate recentă (pentru admin: ce task-uri au fost modificate). */
 export async function recentActivity(limit = 30) {
   if (DEMO) return [];

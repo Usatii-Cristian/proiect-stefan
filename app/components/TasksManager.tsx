@@ -7,10 +7,20 @@ import {
   setTaskStatus,
   setTaskProgress,
   deleteTask,
+  getTaskHistory,
   type TaskState,
 } from "@/app/actions/tasks";
 import { useToast } from "./toast";
 import { IconTrash, IconX, IconChevronLeft, IconChevronRight } from "./icons";
+
+type HistoryRow = {
+  id: string;
+  fromStatus: Status | null;
+  toStatus: Status;
+  note: string | null;
+  createdAt: string | Date;
+  userName: string;
+};
 
 type Opt = { id: string; name: string };
 type Status = "NEW" | "ASSIGNED" | "READ" | "IN_PROGRESS" | "ON_HOLD" | "REVIEW" | "DONE" | "CANCELLED";
@@ -27,6 +37,7 @@ type Task = {
   teamName: string | null;
   projectName: string | null;
   creatorName: string;
+  createdAt: string | Date;
 };
 
 const ST: Record<Status, { label: string; dot: string }> = {
@@ -80,6 +91,26 @@ export default function TasksManager({
   const [tasks, setTasks] = useState(items);
   useEffect(() => setTasks(items), [items]);
 
+  // Istoric (timeline) per task — expandare + cache lazy
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [history, setHistory] = useState<Record<string, HistoryRow[]>>({});
+  const [loadingHist, setLoadingHist] = useState<string | null>(null);
+
+  function toggleHistory(id: string) {
+    if (openId === id) {
+      setOpenId(null);
+      return;
+    }
+    setOpenId(id);
+    if (!history[id]) {
+      setLoadingHist(id);
+      getTaskHistory(id)
+        .then((rows) => setHistory((h) => ({ ...h, [id]: rows as HistoryRow[] })))
+        .catch(() => toast.error("Nu am putut încărca istoricul"))
+        .finally(() => setLoadingHist((cur) => (cur === id ? null : cur)));
+    }
+  }
+
   // Filtre client-side (instant, fără reload)
   const [fSearch, setFSearch] = useState("");
   const [fStatus, setFStatus] = useState("");
@@ -116,6 +147,17 @@ export default function TasksManager({
         toast.error(res.error);
       } else {
         toast.success(`Status: ${ST[next].label}`);
+        // istoricul s-a schimbat → invalidează cache-ul ca să se reîncarce la deschidere
+        setHistory((h) => {
+          if (!h[id]) return h;
+          const { [id]: _drop, ...rest } = h;
+          return rest;
+        });
+        if (openId === id) {
+          getTaskHistory(id)
+            .then((rows) => setHistory((hh) => ({ ...hh, [id]: rows as HistoryRow[] })))
+            .catch(() => {});
+        }
       }
     });
   }
@@ -200,42 +242,60 @@ export default function TasksManager({
       ) : (
         <div className="flex flex-col gap-1.5">
           {filtered.map((t) => (
-            <div key={t.id} className="card flex items-center gap-2.5 px-3 py-2">
-              <span className={`size-2.5 shrink-0 rounded-full ${ST[t.status].dot}`} title={ST[t.status].label} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium">{t.title}</span>
-                  <span className="hidden shrink-0 rounded bg-[var(--color-surface-2)] px-1.5 py-0.5 text-[10px] text-ink-soft sm:inline">
-                    {TYPE_RO[t.type]}
-                  </span>
-                </div>
-                <p className="truncate text-[11px] text-ink-soft">
-                  {PRIO_RO[t.priority]}
-                  {t.projectName && ` · ${t.projectName}`}
-                  {(t.assigneeName || t.teamName) && ` · ${t.assigneeName ?? t.teamName}`}
-                  {t.dueAt && ` · ${new Date(t.dueAt).toLocaleDateString("ro-RO")}`}
-                  {t.progress > 0 && ` · ${t.progress}%`}
-                </p>
-              </div>
-              <select
-                value={t.progress}
-                onChange={(e) => changeProgress(t.id, Number(e.target.value))}
-                title="Progres"
-                className="hidden h-8 w-16 shrink-0 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-1 text-[11px] outline-none focus:border-brand sm:block"
-              >
-                {PROGRESS.map((p) => <option key={p} value={p}>{p}%</option>)}
-              </select>
-              <select
-                value={t.status}
-                onChange={(e) => changeStatus(t.id, e.target.value as Status)}
-                className="h-8 w-28 shrink-0 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-1.5 text-[11px] outline-none focus:border-brand"
-              >
-                {STATUSES.map((s) => <option key={s} value={s}>{ST[s].label}</option>)}
-              </select>
-              {canDelete && (
-                <button onClick={() => remove(t.id)} className="tap grid size-8 shrink-0 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]" title="Șterge">
-                  <IconTrash className="size-3.5" />
+            <div key={t.id} className="card overflow-hidden">
+              <div className="flex items-center gap-2.5 px-3 py-2">
+                <span className={`size-2.5 shrink-0 rounded-full ${ST[t.status].dot}`} title={ST[t.status].label} />
+                <button
+                  type="button"
+                  onClick={() => toggleHistory(t.id)}
+                  className="min-w-0 flex-1 text-left"
+                  title="Vezi istoricul de status"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">{t.title}</span>
+                    <span className="hidden shrink-0 rounded bg-[var(--color-surface-2)] px-1.5 py-0.5 text-[10px] text-ink-soft sm:inline">
+                      {TYPE_RO[t.type]}
+                    </span>
+                    <IconChevronRight
+                      className={`size-3.5 shrink-0 text-ink-soft transition-transform ${openId === t.id ? "rotate-90" : ""}`}
+                    />
+                  </div>
+                  <p className="truncate text-[11px] text-ink-soft">
+                    {PRIO_RO[t.priority]}
+                    {t.projectName && ` · ${t.projectName}`}
+                    {(t.assigneeName || t.teamName) && ` · ${t.assigneeName ?? t.teamName}`}
+                    {t.dueAt && ` · ${new Date(t.dueAt).toLocaleDateString("ro-RO")}`}
+                    {t.progress > 0 && ` · ${t.progress}%`}
+                  </p>
                 </button>
+                <select
+                  value={t.progress}
+                  onChange={(e) => changeProgress(t.id, Number(e.target.value))}
+                  title="Progres"
+                  className="hidden h-8 w-16 shrink-0 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-1 text-[11px] outline-none focus:border-brand sm:block"
+                >
+                  {PROGRESS.map((p) => <option key={p} value={p}>{p}%</option>)}
+                </select>
+                <select
+                  value={t.status}
+                  onChange={(e) => changeStatus(t.id, e.target.value as Status)}
+                  className="h-8 w-28 shrink-0 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-1.5 text-[11px] outline-none focus:border-brand"
+                >
+                  {STATUSES.map((s) => <option key={s} value={s}>{ST[s].label}</option>)}
+                </select>
+                {canDelete && (
+                  <button onClick={() => remove(t.id)} className="tap grid size-8 shrink-0 place-items-center rounded-lg border border-[var(--color-line)] text-st-cancelled hover:bg-[var(--color-surface-2)]" title="Șterge">
+                    <IconTrash className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              {openId === t.id && (
+                <Timeline
+                  rows={history[t.id]}
+                  loading={loadingHist === t.id}
+                  createdAt={t.createdAt}
+                  creatorName={t.creatorName}
+                />
               )}
             </div>
           ))}
@@ -265,6 +325,53 @@ export default function TasksManager({
         />
       )}
     </>
+  );
+}
+
+function Timeline({
+  rows,
+  loading,
+  createdAt,
+  creatorName,
+}: {
+  rows: HistoryRow[] | undefined;
+  loading: boolean;
+  createdAt: string | Date;
+  creatorName: string;
+}) {
+  const fmt = (d: string | Date) => new Date(d).toLocaleString("ro-RO", { dateStyle: "short", timeStyle: "short" });
+  return (
+    <div className="border-t border-[var(--color-line)] bg-[var(--color-surface-2)]/40 px-3 py-2.5">
+      {loading && !rows ? (
+        <p className="text-[11px] text-ink-soft">Se încarcă istoricul…</p>
+      ) : (
+        <ol className="flex flex-col gap-2">
+          <li className="flex items-start gap-2.5">
+            <span className="mt-1 size-2 shrink-0 rounded-full bg-st-new" />
+            <div className="min-w-0 text-[11px]">
+              <span className="font-medium">Creat</span>
+              <span className="text-ink-soft"> · {creatorName} · {fmt(createdAt)}</span>
+            </div>
+          </li>
+          {(rows ?? []).map((r) => (
+            <li key={r.id} className="flex items-start gap-2.5">
+              <span className={`mt-1 size-2 shrink-0 rounded-full ${ST[r.toStatus]?.dot ?? "bg-st-new"}`} />
+              <div className="min-w-0 text-[11px]">
+                <span className="font-medium">
+                  {r.fromStatus ? `${ST[r.fromStatus]?.label ?? r.fromStatus} → ` : ""}
+                  {ST[r.toStatus]?.label ?? r.toStatus}
+                </span>
+                <span className="text-ink-soft"> · {r.userName} · {fmt(r.createdAt)}</span>
+                {r.note && <span className="text-ink-soft"> · {r.note}</span>}
+              </div>
+            </li>
+          ))}
+          {rows && rows.length === 0 && (
+            <li className="text-[11px] text-ink-soft">Niciun alt eveniment încă.</li>
+          )}
+        </ol>
+      )}
+    </div>
   );
 }
 
