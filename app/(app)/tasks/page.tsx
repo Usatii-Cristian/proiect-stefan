@@ -5,6 +5,7 @@ import { listTasks } from "@/lib/queries/tasks";
 import { userOptions } from "@/lib/queries/users";
 import { teamOptions } from "@/lib/queries/teams";
 import { projectOptions } from "@/lib/queries/projects";
+import { invoiceClientOptions } from "@/lib/queries/invoices";
 import TasksManager from "@/app/components/TasksManager";
 
 export const dynamic = "force-dynamic";
@@ -31,11 +32,12 @@ export default async function TasksPage({
   const initialProjectId = typeof sp.project === "string" ? sp.project : undefined;
 
   // Încărcăm setul scope-ului (server); filtrele status/tip/persoană/dată se aplică pe client (instant).
-  const [result, users, teams, projects] = await Promise.all([
+  const [result, users, teams, projects, clients] = await Promise.all([
     listTasks({ scope, userId: user.id, teamIds: user.teamIds, page, pageSize: 100 }),
     userOptions(),
     teamOptions(),
     projectOptions(),
+    invoiceClientOptions(),
   ]);
 
   return (
@@ -63,6 +65,7 @@ export default async function TasksPage({
         users={users}
         teams={teams}
         projects={projects}
+        clients={clients}
         canCreate={can(user, "tasks.create")}
         canDelete={can(user, "tasks.delete")}
         canCreateProject={can(user, "projects.create")}

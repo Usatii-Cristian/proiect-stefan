@@ -35,9 +35,12 @@ type Task = {
   progress: number;
   dueAt: string | Date | null;
   assigneeId: string | null;
+  projectId: string | null;
+  clientId: string | null;
   assigneeName: string | null;
   teamName: string | null;
   projectName: string | null;
+  clientName: string | null;
   creatorName: string;
   createdAt: string | Date;
 };
@@ -70,6 +73,7 @@ export default function TasksManager({
   users,
   teams,
   projects,
+  clients = [],
   canCreate,
   canDelete,
   canCreateProject = false,
@@ -83,6 +87,7 @@ export default function TasksManager({
   users: Opt[];
   teams: Opt[];
   projects: Opt[];
+  clients?: Opt[];
   canCreate: boolean;
   canDelete: boolean;
   canCreateProject?: boolean;
@@ -122,6 +127,9 @@ export default function TasksManager({
   const [fStatus, setFStatus] = useState("");
   const [fType, setFType] = useState("");
   const [fAssignee, setFAssignee] = useState("");
+  const [fProject, setFProject] = useState("");
+  const [fClient, setFClient] = useState("");
+  const [fPriority, setFPriority] = useState("");
   const [fDue, setFDue] = useState("");
 
   const filtered = useMemo(() => {
@@ -131,6 +139,9 @@ export default function TasksManager({
       if (fStatus && t.status !== fStatus) return false;
       if (fType && t.type !== fType) return false;
       if (fAssignee && t.assigneeId !== fAssignee) return false;
+      if (fProject && t.projectId !== fProject) return false;
+      if (fClient && t.clientId !== fClient) return false;
+      if (fPriority && t.priority !== fPriority) return false;
       if (term && !t.title.toLowerCase().includes(term)) return false;
       if (dueTs) {
         if (!t.dueAt) return false;
@@ -138,7 +149,7 @@ export default function TasksManager({
       }
       return true;
     });
-  }, [tasks, fSearch, fStatus, fType, fAssignee, fDue]);
+  }, [tasks, fSearch, fStatus, fType, fAssignee, fProject, fClient, fPriority, fDue]);
 
   function goPage(n: number) {
     router.push(`/tasks?scope=${scope}${n > 1 ? `&page=${n}` : ""}`);
@@ -193,7 +204,13 @@ export default function TasksManager({
       });
   }
 
-  const activeFilters = Boolean(fStatus || fType || fAssignee || fDue || fSearch);
+  const activeFilters = Boolean(
+    fStatus || fType || fAssignee || fProject || fClient || fPriority || fDue || fSearch,
+  );
+  function resetFilters() {
+    setFSearch(""); setFStatus(""); setFType(""); setFAssignee("");
+    setFProject(""); setFClient(""); setFPriority(""); setFDue("");
+  }
 
   return (
     <>
@@ -219,10 +236,25 @@ export default function TasksManager({
           <option value="">Persoană: toți</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
+        <select value={fProject} onChange={(e) => setFProject(e.target.value)} className={fld}>
+          <option value="">Proiect: toate</option>
+          {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select value={fClient} onChange={(e) => setFClient(e.target.value)} className={fld}>
+          <option value="">Client: toți</option>
+          {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className={fld}>
+          <option value="">Prioritate: toate</option>
+          <option value="LOW">Scăzută</option>
+          <option value="MEDIUM">Medie</option>
+          <option value="HIGH">Ridicată</option>
+          <option value="URGENT">Urgentă</option>
+        </select>
         <input type="date" value={fDue} onChange={(e) => setFDue(e.target.value)} title="Scadent până la" className={fld} />
         {activeFilters && (
           <button
-            onClick={() => { setFSearch(""); setFStatus(""); setFType(""); setFAssignee(""); setFDue(""); }}
+            onClick={resetFilters}
             className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]"
           >
             Resetează

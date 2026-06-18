@@ -15,9 +15,11 @@ export type TaskRow = {
   assigneeId: string | null;
   teamId: string | null;
   projectId: string | null;
+  clientId: string | null;
   assigneeName: string | null;
   teamName: string | null;
   projectName: string | null;
+  clientName: string | null;
   creatorName: string;
   createdAt: Date;
 };
@@ -37,7 +39,7 @@ const TASK_SELECT = {
   createdAt: true,
   assignee: { select: { name: true } },
   team: { select: { name: true } },
-  project: { select: { name: true } },
+  project: { select: { name: true, clientId: true, client: { select: { name: true } } } },
   creator: { select: { name: true } },
 } as const;
 
@@ -54,9 +56,11 @@ function toRow(t: Prisma.TaskGetPayload<{ select: typeof TASK_SELECT }>): TaskRo
     assigneeId: t.assigneeId,
     teamId: t.teamId,
     projectId: t.projectId,
+    clientId: t.project?.clientId ?? null,
     assigneeName: t.assignee?.name ?? null,
     teamName: t.team?.name ?? null,
     projectName: t.project?.name ?? null,
+    clientName: t.project?.client?.name ?? null,
     creatorName: t.creator.name,
     createdAt: t.createdAt,
   };

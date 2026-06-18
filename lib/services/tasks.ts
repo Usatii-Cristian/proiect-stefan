@@ -177,6 +177,7 @@ export async function changeTaskStatus(
       type: true,
       status: true,
       creatorId: true,
+      assigneeId: true,
       telegramChatId: true,
       telegramMessageId: true,
     },
@@ -194,8 +195,10 @@ export async function changeTaskStatus(
   // Notificări best-effort (nu afectează rezultatul)
   try {
     const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
-    // Creatorul + utilizatorii aleși (permisiune), fără cel care a făcut modificarea
+    // Creatorul + asignatul (lucrătorul care răspunde de task) + utilizatorii aleși
+    // (permisiune), fără cel care a făcut modificarea
     const recipients = new Set<string>([task.creatorId, ...(await adminNotificationRecipients())]);
+    if (task.assigneeId) recipients.add(task.assigneeId);
     recipients.delete(actorId);
     await notifyUsers(
       [...recipients],
