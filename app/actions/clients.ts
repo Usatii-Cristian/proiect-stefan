@@ -50,6 +50,26 @@ export async function createClient(
   return { ok: true, id: client.id };
 }
 
+export type QuickCreateResult =
+  | { ok: true; id: string; name: string }
+  | { ok: false; error: string };
+
+/** Creare rapidă (inline) doar cu numele — pentru dialoguri (task/factură). */
+export async function quickCreateClient(name: string): Promise<QuickCreateResult> {
+  const user = await requireUser();
+  if (!can(user, "clients.create")) return { ok: false, error: "Fără permisiune." };
+  if (DEMO) return { ok: false, error: DEMO_MSG };
+  const n = name.trim();
+  if (!n) return { ok: false, error: "Numele e obligatoriu." };
+  const client = await prisma.client.create({
+    data: { userId: user.id, name: n },
+    select: { id: true, name: true },
+  });
+  revalidatePath("/clients");
+  revalidateTag("clients", "max");
+  return { ok: true, id: client.id, name: client.name };
+}
+
 export async function updateClient(
   _prev: ClientState,
   formData: FormData,

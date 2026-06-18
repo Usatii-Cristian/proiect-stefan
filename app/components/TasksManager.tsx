@@ -12,6 +12,8 @@ import {
 } from "@/app/actions/tasks";
 import { useToast } from "./toast";
 import { IconTrash, IconX, IconChevronLeft, IconChevronRight } from "./icons";
+import QuickSelect from "./QuickSelect";
+import { quickCreateProject } from "@/app/actions/projects";
 
 type HistoryRow = {
   id: string;
@@ -70,7 +72,9 @@ export default function TasksManager({
   projects,
   canCreate,
   canDelete,
+  canCreateProject = false,
   initialCreate,
+  initialProjectId,
 }: {
   items: Task[];
   hasMore: boolean;
@@ -81,12 +85,14 @@ export default function TasksManager({
   projects: Opt[];
   canCreate: boolean;
   canDelete: boolean;
+  canCreateProject?: boolean;
   initialCreate?: "TASK" | "TICKET" | "WORK_ORDER";
+  initialProjectId?: string;
 }) {
   const router = useRouter();
   const toast = useToast();
   const [createType, setCreateType] = useState<"TASK" | "TICKET" | "WORK_ORDER" | null>(
-    initialCreate ?? null,
+    initialCreate ?? (initialProjectId ? "TASK" : null),
   );
   const [tasks, setTasks] = useState(items);
   useEffect(() => setTasks(items), [items]);
@@ -320,6 +326,8 @@ export default function TasksManager({
           users={users}
           teams={teams}
           projects={projects}
+          canCreateProject={canCreateProject}
+          initialProjectId={initialProjectId}
           onClose={() => setCreateType(null)}
           onCreated={() => router.refresh()}
         />
@@ -380,6 +388,8 @@ function CreateDialog({
   users,
   teams,
   projects,
+  canCreateProject,
+  initialProjectId,
   onClose,
   onCreated,
 }: {
@@ -387,6 +397,8 @@ function CreateDialog({
   users: Opt[];
   teams: Opt[];
   projects: Opt[];
+  canCreateProject: boolean;
+  initialProjectId?: string;
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -430,10 +442,16 @@ function CreateDialog({
               <option value="URGENT">Urgentă</option>
             </select>
           </div>
-          <select name="projectId" defaultValue="" className={dlgInput}>
-            <option value="">Fără proiect (se asignează ție)</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>Proiect: {p.name}</option>)}
-          </select>
+          <QuickSelect
+            name="projectId"
+            options={projects}
+            placeholder="Fără proiect (se asignează ție)"
+            optionPrefix="Proiect: "
+            canCreate={canCreateProject}
+            createLabel="proiect"
+            onQuickCreate={quickCreateProject}
+            defaultValue={initialProjectId ?? ""}
+          />
           <div className="grid grid-cols-2 gap-3">
             <select name="assigneeId" defaultValue="" className={dlgInput}>
               <option value="">Asignează persoană…</option>

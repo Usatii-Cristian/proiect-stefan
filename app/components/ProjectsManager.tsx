@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   createProject,
@@ -9,7 +10,7 @@ import {
   type ProjectState,
 } from "@/app/actions/projects";
 import { useToast } from "./toast";
-import { IconX, IconPencil, IconTrash } from "./icons";
+import { IconX, IconPencil, IconTrash, IconPlus } from "./icons";
 
 type Opt = { id: string; name: string };
 type Project = {
@@ -86,6 +87,9 @@ export default function ProjectsManager({
                   {p.teamId && ` · echipă ${nameOf(p.teamId, teams) ?? "?"}`}
                 </p>
               </div>
+              <Link href={`/tasks?create=task&project=${p.id}`} className="tap inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[var(--color-line)] px-2.5 text-xs font-medium text-brand hover:bg-brand-soft" title="Adaugă task în proiect">
+                <IconPlus className="size-3.5" /> Task
+              </Link>
               <button onClick={() => setDialog({ open: true, project: p })} className="tap grid size-9 place-items-center rounded-lg border border-[var(--color-line)] hover:bg-[var(--color-surface-2)]" title="Editează">
                 <IconPencil className="size-4" />
               </button>

@@ -18,7 +18,7 @@ const SCOPES = [
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scope?: string; page?: string; create?: string }>;
+  searchParams: Promise<{ scope?: string; page?: string; create?: string; project?: string }>;
 }) {
   const user = await requirePermission("tasks.view");
   const sp = await searchParams;
@@ -28,6 +28,7 @@ export default async function TasksPage({
   const page = Math.max(1, Number(sp.page) || 1);
   const initialCreate =
     sp.create === "ticket" ? "TICKET" : sp.create === "work_order" ? "WORK_ORDER" : sp.create === "task" ? "TASK" : undefined;
+  const initialProjectId = typeof sp.project === "string" ? sp.project : undefined;
 
   // Încărcăm setul scope-ului (server); filtrele status/tip/persoană/dată se aplică pe client (instant).
   const [result, users, teams, projects] = await Promise.all([
@@ -64,7 +65,9 @@ export default async function TasksPage({
         projects={projects}
         canCreate={can(user, "tasks.create")}
         canDelete={can(user, "tasks.delete")}
+        canCreateProject={can(user, "projects.create")}
         initialCreate={can(user, "tasks.create") ? initialCreate : undefined}
+        initialProjectId={can(user, "tasks.create") ? initialProjectId : undefined}
       />
     </div>
   );

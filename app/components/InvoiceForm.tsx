@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { saveInvoice, type InvoicePayload } from "@/app/actions/invoices";
+import { quickCreateClient } from "@/app/actions/clients";
+import { quickCreateProject } from "@/app/actions/projects";
 import { money } from "./invoice-meta";
-import { IconTrash } from "./icons";
+import { useToast } from "./toast";
+import { IconTrash, IconPlus, IconCheck, IconX } from "./icons";
 
 type Opt = { id: string; name: string };
 type ProjOpt = { id: string; name: string; clientId: string | null };
@@ -41,15 +44,61 @@ export default function InvoiceForm({
   projects,
   currency,
   initial,
+  canCreateClient = false,
+  canCreateProject = false,
 }: {
   clients: Opt[];
   projects: ProjOpt[];
   currency: string;
   initial?: InvoiceInitial;
+  canCreateClient?: boolean;
+  canCreateProject?: boolean;
 }) {
   const router = useRouter();
+  const toast = useToast();
+  // Liste locale ca să apară imediat ce creăm inline
+  const [clientList, setClientList] = useState<Opt[]>(clients);
+  const [projectList, setProjectList] = useState<ProjOpt[]>(projects);
   const [clientId, setClientId] = useState(initial?.clientId ?? "");
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
+  // Inline-create
+  const [addingClient, setAddingClient] = useState(false);
+  const [newClient, setNewClient] = useState("");
+  const [addingProject, setAddingProject] = useState(false);
+  const [newProject, setNewProject] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function createClientInline() {
+    const n = newClient.trim();
+    if (!n) return;
+    setBusy(true);
+    const res = await quickCreateClient(n);
+    setBusy(false);
+    if (res.ok) {
+      setClientList((l) => [{ id: res.id, name: res.name }, ...l]);
+      onClientChange(res.id);
+      setNewClient("");
+      setAddingClient(false);
+      toast.success("Client creat");
+    } else toast.error(res.error);
+  }
+
+  async function createProjectInline() {
+    const n = newProject.trim();
+    if (!n) return;
+    setBusy(true);
+    const res = await quickCreateProject(n);
+    setBusy(false);
+    if (res.ok) {
+      // legăm proiectul de clientul curent (dacă există) ca să apară în filtrare
+      setProjectList((l) => [{ id: res.id, name: res.name, clientId: clientId || null }, ...l]);
+      setProjectId(res.id);
+      setTaskId("");
+      setNewProject("");
+      setAddingProject(false);
+      toast.success("Proiect creat");
+    } else toast.error(res.error);
+  }
   const [taskId, setTaskId] = useState(initial?.taskId ?? "");
   const [tasks, setTasks] = useState<{ id: string; title: string }[]>([]);
   const [issueDate, setIssueDate] = useState(initial?.issueDate ?? todayStr());
@@ -71,8 +120,8 @@ export default function InvoiceForm({
 
   // Proiectele clientului selectat (sau toate dacă nu e client)
   const filteredProjects = useMemo(
-    () => (clientId ? projects.filter((p) => p.clientId === clientId) : projects),
-    [clientId, projects],
+    () => (clientId ? projectList.filter((p) => p.clientId === clientId) : projectList),
+    [clientId, projectList],
   );
 
   // Încarcă task-urile pentru proiectul curent
@@ -94,7 +143,7 @@ export default function InvoiceForm({
   function onClientChange(cid: string) {
     setClientId(cid);
     setTaskId("");
-    const owned = projects.filter((p) => p.clientId === cid);
+    const owned = projectList.filter((p) => p.clientId === cid);
     // Un singur proiect → selectat automat; altfel resetăm
     if (cid && owned.length === 1) setProjectId(owned[0].id);
     else setProjectId("");
@@ -103,7 +152,7 @@ export default function InvoiceForm({
   function onProjectChange(pid: string) {
     setProjectId(pid);
     setTaskId("");
-    const proj = projects.find((p) => p.id === pid);
+    const proj = projectList.find((p) => p.id === pid);
     if (proj?.clientId) setClientId(proj.clientId); // autofill client
   }
 
@@ -185,17 +234,49 @@ export default function InvoiceForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div>
             <label className={label}>Client (opțional)</label>
-            <select value={clientId} onChange={(e) => onClientChange(e.target.value)} className={input}>
-              <option value="">—</option>
-              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <div className="flex gap-2">
+              <select value={clientId} onChange={(e) => onClientChange(e.target.value)} className={input}>
+                <option value="">—</option>
+                {clientList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              {canCreateClient && !addingClient && (
+                <button type="button" onClick={() => setAddingClient(true)} className="tap grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--color-line)] text-brand hover:bg-brand-soft" title="Adaugă client">
+                  <IconPlus className="size-4" />
+                </button>
+              )}
+            </div>
+            {addingClient && (
+              <div className="mt-2 flex gap-2">
+                <input autoFocus value={newClient} onChange={(e) => setNewClient(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createClientInline(); } if (e.key === "Escape") { setAddingClient(false); setNewClient(""); } }}
+                  placeholder="Nume client…" className={input} />
+                <button type="button" disabled={busy || !newClient.trim()} onClick={createClientInline} className="tap grid size-11 shrink-0 place-items-center rounded-xl bg-brand text-white hover:bg-brand-strong disabled:opacity-50" title="Salvează"><IconCheck className="size-4" /></button>
+                <button type="button" onClick={() => { setAddingClient(false); setNewClient(""); }} className="tap grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--color-line)] text-ink-soft hover:bg-[var(--color-surface-2)]" title="Anulează"><IconX className="size-4" /></button>
+              </div>
+            )}
           </div>
           <div>
             <label className={label}>Proiect (opțional)</label>
-            <select value={projectId} onChange={(e) => onProjectChange(e.target.value)} className={input}>
-              <option value="">—</option>
-              {filteredProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            <div className="flex gap-2">
+              <select value={projectId} onChange={(e) => onProjectChange(e.target.value)} className={input}>
+                <option value="">—</option>
+                {filteredProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              {canCreateProject && !addingProject && (
+                <button type="button" onClick={() => setAddingProject(true)} className="tap grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--color-line)] text-brand hover:bg-brand-soft" title="Adaugă proiect">
+                  <IconPlus className="size-4" />
+                </button>
+              )}
+            </div>
+            {addingProject && (
+              <div className="mt-2 flex gap-2">
+                <input autoFocus value={newProject} onChange={(e) => setNewProject(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); createProjectInline(); } if (e.key === "Escape") { setAddingProject(false); setNewProject(""); } }}
+                  placeholder="Nume proiect…" className={input} />
+                <button type="button" disabled={busy || !newProject.trim()} onClick={createProjectInline} className="tap grid size-11 shrink-0 place-items-center rounded-xl bg-brand text-white hover:bg-brand-strong disabled:opacity-50" title="Salvează"><IconCheck className="size-4" /></button>
+                <button type="button" onClick={() => { setAddingProject(false); setNewProject(""); }} className="tap grid size-11 shrink-0 place-items-center rounded-xl border border-[var(--color-line)] text-ink-soft hover:bg-[var(--color-surface-2)]" title="Anulează"><IconX className="size-4" /></button>
+              </div>
+            )}
           </div>
           <div>
             <label className={label}>Task (opțional)</label>

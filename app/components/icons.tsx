@@ -29,6 +29,14 @@ export function IconX({ className = "size-4" }: IconProps) {
   );
 }
 
+export function IconPlus({ className = "size-4" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
 export function IconTrash({ className = "size-4" }: IconProps) {
   return (
     <svg {...base} className={className}>

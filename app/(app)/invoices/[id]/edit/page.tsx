@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePermission } from "@/lib/dal";
+import { can } from "@/lib/permissions";
 import {
   getInvoice,
   invoiceClientOptions,
@@ -17,7 +18,7 @@ export default async function EditInvoicePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requirePermission("invoices.edit");
+  const user = await requirePermission("invoices.edit");
   const { id } = await params;
   const [invoice, clients, projects, company] = await Promise.all([
     getInvoice(id),
@@ -52,7 +53,14 @@ export default async function EditInvoicePage({
         <IconChevronLeft className="size-4" /> Înapoi la facturi
       </Link>
       <h1 className="mb-4 text-xl font-bold">Editează {invoice.number}</h1>
-      <InvoiceForm clients={clients} projects={projects} currency={company.currency} initial={initial} />
+      <InvoiceForm
+        clients={clients}
+        projects={projects}
+        currency={company.currency}
+        initial={initial}
+        canCreateClient={can(user, "clients.create")}
+        canCreateProject={can(user, "projects.create")}
+      />
     </div>
   );
 }

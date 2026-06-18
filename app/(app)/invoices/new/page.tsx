@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requirePermission } from "@/lib/dal";
+import { can } from "@/lib/permissions";
 import {
   invoiceClientOptions,
   invoiceProjectOptions,
@@ -11,7 +12,7 @@ import { IconChevronLeft } from "@/app/components/icons";
 export const dynamic = "force-dynamic";
 
 export default async function NewInvoicePage() {
-  await requirePermission("invoices.create");
+  const user = await requirePermission("invoices.create");
   const [clients, projects, company] = await Promise.all([
     invoiceClientOptions(),
     invoiceProjectOptions(),
@@ -24,7 +25,13 @@ export default async function NewInvoicePage() {
         <IconChevronLeft className="size-4" /> Înapoi la facturi
       </Link>
       <h1 className="mb-4 text-xl font-bold">Factură nouă</h1>
-      <InvoiceForm clients={clients} projects={projects} currency={company.currency} />
+      <InvoiceForm
+        clients={clients}
+        projects={projects}
+        currency={company.currency}
+        canCreateClient={can(user, "clients.create")}
+        canCreateProject={can(user, "projects.create")}
+      />
     </div>
   );
 }

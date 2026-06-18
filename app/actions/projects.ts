@@ -49,6 +49,26 @@ export async function createProject(
   return { ok: true, id: p.id };
 }
 
+export type QuickCreateResult =
+  | { ok: true; id: string; name: string }
+  | { ok: false; error: string };
+
+/** Creare rapidă (inline) doar cu numele — pentru dialoguri (task/factură). */
+export async function quickCreateProject(name: string): Promise<QuickCreateResult> {
+  const user = await requireUser();
+  if (!can(user, "projects.create")) return { ok: false, error: "Fără permisiune." };
+  if (DEMO) return { ok: false, error: "Mod demo." };
+  const n = name.trim();
+  if (!n) return { ok: false, error: "Numele e obligatoriu." };
+  const p = await prisma.project.create({
+    data: { name: n, status: "ACTIVE", ownerId: user.id },
+    select: { id: true, name: true },
+  });
+  revalidatePath("/projects");
+  revalidateTag("projects", "max");
+  return { ok: true, id: p.id, name: p.name };
+}
+
 export async function updateProject(
   _prev: ProjectState,
   formData: FormData,
