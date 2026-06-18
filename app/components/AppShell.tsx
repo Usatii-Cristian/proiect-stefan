@@ -12,6 +12,8 @@ type NavItem = { href: string; label: string; icon: ReactNode; perm?: string };
 const NAV: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: gridIcon() },
   { href: "/tasks", label: "Task-uri", icon: checklistIcon(), perm: "tasks.view" },
+  { href: "/kanban", label: "Kanban", icon: kanbanIcon(), perm: "tasks.view" },
+  { href: "/calendar", label: "Calendar", icon: calIcon(), perm: "tasks.view" },
   { href: "/projects", label: "Proiecte", icon: folderIcon(), perm: "projects.view" },
   { href: "/team", label: "Echipă", icon: usersIcon(), perm: "teams.view" },
   { href: "/invoices", label: "Facturi", icon: invoiceIcon(), perm: "invoices.view" },

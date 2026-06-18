@@ -1,29 +1,50 @@
+import Link from "next/link";
 import { requirePermission } from "@/lib/dal";
-import { getUserTimezone } from "@/lib/queries/settings";
-import { listForKanban } from "@/lib/queries/appointments";
-import { todayKey, addDaysToKey } from "@/lib/date";
-import { toVM } from "@/lib/view";
-import KanbanBoard from "@/app/components/KanbanBoard";
+import { listTasks } from "@/lib/queries/tasks";
+import { userOptions } from "@/lib/queries/users";
+import TaskKanban from "@/app/components/TaskKanban";
 
 export const dynamic = "force-dynamic";
 
-export default async function KanbanPage() {
-  const user = await requirePermission("appointments.view");
-  const tz = await getUserTimezone(user.id);
-  const today = todayKey(tz);
+const SCOPES = [
+  { key: "mine", label: "Ale mele" },
+  { key: "all", label: "Toate" },
+  { key: "created", label: "Create de mine" },
+] as const;
 
-  // Fereastră: ultimele 7 zile + următoarele 30
-  const start = addDaysToKey(today, -7, tz);
-  const keys = Array.from({ length: 38 }, (_, i) => addDaysToKey(start, i, tz));
+export default async function KanbanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ scope?: string }>;
+}) {
+  const user = await requirePermission("tasks.view");
+  const sp = await searchParams;
+  const scope = (["mine", "all", "created"].includes(sp.scope ?? "")
+    ? sp.scope
+    : "mine") as "mine" | "all" | "created";
 
-  const items = (await listForKanban(user.id, keys)).map((a) => toVM(a, tz));
+  const [result, users] = await Promise.all([
+    listTasks({ scope, userId: user.id, teamIds: user.teamIds, page: 1, pageSize: 200 }),
+    userOptions(),
+  ]);
 
   return (
     <div className="w-full">
-      <p className="mb-4 text-sm text-ink-soft">
-        Programări din ultimele 7 zile și următoarele 30 — mută între coloane.
-      </p>
-      <KanbanBoard items={items} />
+      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+        {SCOPES.map((s) => (
+          <Link
+            key={s.key}
+            href={`/kanban?scope=${s.key}`}
+            prefetch={false}
+            className={`tap shrink-0 rounded-full px-4 py-1.5 text-sm font-medium ${
+              scope === s.key ? "bg-brand text-white" : "card text-ink-soft"
+            }`}
+          >
+            {s.label}
+          </Link>
+        ))}
+      </div>
+      <TaskKanban items={result.items} users={users} />
     </div>
   );
 }

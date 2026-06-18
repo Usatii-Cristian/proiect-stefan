@@ -123,6 +123,51 @@ export async function listTasks(
   return { items: rows.slice(0, pageSize).map(toRow), hasMore, page };
 }
 
+export type CalendarTask = {
+  id: string;
+  title: string;
+  type: TaskType;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueAt: Date;
+  assigneeName: string | null;
+};
+
+/** Task-uri cu scadență într-un interval (pentru calendar). */
+export async function tasksDueBetween(opts: {
+  scope: "all" | "mine" | "created";
+  userId: string;
+  teamIds?: string[];
+  from: Date;
+  to: Date;
+}): Promise<CalendarTask[]> {
+  if (DEMO) return [];
+  const where = buildWhere({ scope: opts.scope, userId: opts.userId, teamIds: opts.teamIds });
+  where.dueAt = { gte: opts.from, lte: opts.to };
+  const rows = await prisma.task.findMany({
+    where,
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      status: true,
+      priority: true,
+      dueAt: true,
+      assignee: { select: { name: true } },
+    },
+    orderBy: { dueAt: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    type: r.type,
+    status: r.status,
+    priority: r.priority,
+    dueAt: r.dueAt as Date,
+    assigneeName: r.assignee?.name ?? null,
+  }));
+}
+
 export async function getTask(id: string) {
   if (DEMO) return null;
   return prisma.task.findUnique({
