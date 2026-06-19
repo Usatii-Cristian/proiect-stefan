@@ -11,14 +11,14 @@ export type NotifyPayload = {
   taskId?: string;
 };
 
-/** Utilizatorii care primesc notificări de tip „admin" (rol ADMIN sau permisiunea dedicată). */
-export async function adminNotificationRecipients(): Promise<string[]> {
+/**
+ * Utilizatorii care vor să fie notificați (ca „observatori") pentru un anumit tip de
+ * eveniment — adică au cheia evenimentului în notifyEvents. Granular, per utilizator.
+ */
+export async function observerRecipients(eventKey: string): Promise<string[]> {
   if (DEMO) return [];
   const users = await prisma.user.findMany({
-    where: {
-      isActive: true,
-      OR: [{ role: "ADMIN" }, { permissions: { hasSome: ["admin", "notifications.receive"] } }],
-    },
+    where: { isActive: true, notifyEvents: { has: eventKey } },
     select: { id: true },
   });
   return users.map((u) => u.id);

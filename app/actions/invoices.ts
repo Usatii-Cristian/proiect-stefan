@@ -2,14 +2,28 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { after } from "next/server";
 import { requireUser, type CurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
 import { createInvoice, updateInvoice } from "@/lib/services/invoices";
 import { logAudit } from "@/lib/services/audit";
+import { notifyUsers, observerRecipients } from "@/lib/services/notifications";
 import type { InvoiceStatus } from "@prisma/client";
 
 const actor = (u: CurrentUser) => ({ id: u.id, name: u.name, role: u.role, isSuperAdmin: u.isSuperAdmin });
+
+/** Notifică observatorii (eveniment factură), în fundal, fără actor. */
+function notifyInvoiceEvent(eventKey: string, title: string, actorId: string) {
+  after(async () => {
+    try {
+      const ids = (await observerRecipients(eventKey)).filter((id) => id !== actorId);
+      if (ids.length) await notifyUsers(ids, { title, url: "/invoices" }, { telegram: true });
+    } catch {
+      /* best-effort */
+    }
+  });
+}
 
 export type InvoicePayload = {
   id?: string;
@@ -69,6 +83,9 @@ export async function saveInvoice(payload: InvoicePayload): Promise<InvoiceActio
     objectName: inv?.number ?? null,
     newValue: status,
   });
+  if (!payload.id) {
+    notifyInvoiceEvent("invoice.created", `Factură nouă: ${inv?.number ?? ""}`.trim(), user.id);
+  }
   revalidatePath("/invoices");
   return { ok: true, id: res.id };
 }
@@ -91,6 +108,7 @@ export async function setInvoiceStatus(
     oldValue: before?.status ?? null,
     newValue: status,
   });
+  notifyInvoiceEvent("invoice.status", `Factură ${before?.number ?? ""}: status ${status}`.trim(), user.id);
   revalidatePath("/invoices");
   return { ok: true };
 }

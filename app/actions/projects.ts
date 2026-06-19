@@ -2,15 +2,31 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { after } from "next/server";
 import { requireUser, type CurrentUser } from "@/lib/dal";
 import { can } from "@/lib/permissions";
 import { DEMO } from "@/lib/demo";
 import { logAudit } from "@/lib/services/audit";
+import { notifyUsers, observerRecipients } from "@/lib/services/notifications";
 import type { ProjectStatus } from "@prisma/client";
 
 export type ProjectState = { ok?: boolean; error?: string; id?: string } | undefined;
 
 const actor = (u: CurrentUser) => ({ id: u.id, name: u.name, role: u.role, isSuperAdmin: u.isSuperAdmin });
+
+/** Notifică observatorii care au bifat „Proiect creat" (în fundal, fără creator). */
+function notifyProjectCreated(projectId: string, name: string, creatorId: string) {
+  after(async () => {
+    try {
+      const ids = (await observerRecipients("project.created")).filter((id) => id !== creatorId);
+      if (ids.length) {
+        await notifyUsers(ids, { title: `Proiect nou: ${name}`, url: "/projects" }, { telegram: true });
+      }
+    } catch {
+      /* best-effort */
+    }
+  });
+}
 
 const STATUSES: ProjectStatus[] = ["ACTIVE", "ON_HOLD", "DONE", "ARCHIVED"];
 
@@ -48,6 +64,7 @@ export async function createProject(
     select: { id: true },
   });
   await logAudit(actor(user), { action: "project.create", module: "Projects", objectId: p.id, objectName: d.name });
+  notifyProjectCreated(p.id, d.name, user.id);
   revalidatePath("/projects");
   revalidateTag("projects", "max");
   return { ok: true, id: p.id };
@@ -69,6 +86,7 @@ export async function quickCreateProject(name: string): Promise<QuickCreateResul
     select: { id: true, name: true },
   });
   await logAudit(actor(user), { action: "project.create", module: "Projects", objectId: p.id, objectName: p.name });
+  notifyProjectCreated(p.id, p.name, user.id);
   revalidatePath("/projects");
   revalidateTag("projects", "max");
   return { ok: true, id: p.id, name: p.name };

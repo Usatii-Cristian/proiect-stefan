@@ -11,6 +11,7 @@ import {
   type UserState,
 } from "@/app/actions/users";
 import { PERMISSION_GROUPS } from "@/lib/permissions";
+import { NOTIFY_EVENTS } from "@/lib/notify-meta";
 import { useToast } from "./toast";
 import { IconX, IconPencil, IconTrash } from "./icons";
 
@@ -22,6 +23,7 @@ type UserRow = {
   isActive: boolean;
   isSuperAdmin: boolean;
   permissions: string[];
+  notifyEvents: string[];
   telegramChatId: string | null;
 };
 
@@ -281,6 +283,27 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose: () => vo
               </div>
             </div>
           )}
+
+          <div className="rounded-xl border border-[var(--color-line)] p-3">
+            <p className="mb-1 text-xs font-semibold text-ink-soft">Notificări (ce evenimente primește)</p>
+            <p className="mb-2 text-[11px] text-ink-soft">
+              Pe lângă astea, primește mereu notificările directe (task asignat lui, schimbări pe task-urile lui).
+            </p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {NOTIFY_EVENTS.map((e) => (
+                <label key={e.key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="notifyEvents"
+                    value={e.key}
+                    defaultChecked={user?.notifyEvents.includes(e.key) ?? false}
+                    className="size-4 accent-[var(--color-brand)]"
+                  />
+                  {e.label}
+                </label>
+              ))}
+            </div>
+          </div>
 
           {state?.error && <p className="text-sm text-st-cancelled">{state.error}</p>}
           <button type="submit" disabled={pending} className="tap h-12 rounded-xl bg-brand font-semibold text-white hover:bg-brand-strong disabled:opacity-60">

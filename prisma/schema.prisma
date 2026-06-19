@@ -123,6 +123,8 @@ model User {
   isSuperAdmin Boolean  @default(false)
   // Permisiuni individuale (chei din lib/permissions.ts). ADMIN le are pe toate.
   permissions  String[] @default([])
+  // Evenimente la care primește notificări „observator" (chei din lib/notify-meta.ts)
+  notifyEvents String[] @default([])
   // Chat ID Telegram setat manual de admin (pentru notificări), independent de linkarea prin bot
   telegramChatId String?
   createdAt    DateTime @default(now())

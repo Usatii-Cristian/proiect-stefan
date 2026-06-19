@@ -9,7 +9,7 @@ import {
   TASK_TYPE_RO,
   TASK_PRIORITY_RO,
 } from "../telegram";
-import { notifyUsers, adminNotificationRecipients } from "./notifications";
+import { notifyUsers, observerRecipients } from "./notifications";
 import type { TaskStatus, TaskType, TaskPriority, CreatedFrom } from "@prisma/client";
 
 export type CreateTaskInput = {
@@ -93,6 +93,7 @@ export async function notifyNewTask(taskId: string): Promise<void> {
         type: true,
         priority: true,
         status: true,
+        creatorId: true,
         assigneeId: true,
         teamId: true,
         assignee: { select: { name: true } },
@@ -155,6 +156,27 @@ export async function notifyNewTask(taskId: string): Promise<void> {
       },
       { telegram: false },
     );
+
+    // Observatori (cei care au bifat evenimentul): creare + asignare.
+    const createdKey = task.type === "TICKET" ? "ticket.created" : "task.created";
+    const observerIds = new Set<string>(await observerRecipients(createdKey));
+    if (task.assigneeId) {
+      for (const id of await observerRecipients("task.assigned")) observerIds.add(id);
+    }
+    observerIds.delete(task.creatorId); // creatorul știe deja
+    for (const id of recipients) observerIds.delete(id); // deja notificați ca direcți
+    if (observerIds.size > 0) {
+      await notifyUsers(
+        [...observerIds],
+        {
+          title: `${TASK_TYPE_RO[task.type]} nou: ${task.title}`,
+          body: task.assignee?.name ? `Asignat: ${task.assignee.name}` : task.project?.name ? `Proiect: ${task.project.name}` : undefined,
+          taskId: task.id,
+          url: "/tasks",
+        },
+        { telegram: true },
+      );
+    }
   } catch {
     // notificarea nu trebuie să afecteze nimic
   }
@@ -195,9 +217,9 @@ export async function changeTaskStatus(
   // Notificări best-effort (nu afectează rezultatul)
   try {
     const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
-    // Creatorul + asignatul (lucrătorul care răspunde de task) + utilizatorii aleși
-    // (permisiune), fără cel care a făcut modificarea
-    const recipients = new Set<string>([task.creatorId, ...(await adminNotificationRecipients())]);
+    // Direcți: creatorul + asignatul (lucrătorul care răspunde de task).
+    // Observatori: cei care au bifat „Status task schimbat". Fără cel care a modificat.
+    const recipients = new Set<string>([task.creatorId, ...(await observerRecipients("task.status"))]);
     if (task.assigneeId) recipients.add(task.assigneeId);
     recipients.delete(actorId);
     await notifyUsers(
@@ -233,7 +255,7 @@ export async function changeTaskProgress(taskId: string, actorId: string, progre
   const p = Math.max(0, Math.min(100, Math.round(progress)));
   const task = await prisma.task.findUnique({
     where: { id: taskId },
-    select: { id: true, title: true, type: true, progress: true, creatorId: true },
+    select: { id: true, title: true, type: true, progress: true, creatorId: true, assigneeId: true },
   });
   if (!task) return { ok: false as const, error: "Task inexistent." };
   if (task.progress === p) {
@@ -244,7 +266,8 @@ export async function changeTaskProgress(taskId: string, actorId: string, progre
 
   try {
     const actor = await prisma.user.findUnique({ where: { id: actorId }, select: { name: true } });
-    const recipients = new Set<string>([task.creatorId, ...(await adminNotificationRecipients())]);
+    const recipients = new Set<string>([task.creatorId, ...(await observerRecipients("task.progress"))]);
+    if (task.assigneeId) recipients.add(task.assigneeId);
     recipients.delete(actorId);
     await notifyUsers(
       [...recipients],

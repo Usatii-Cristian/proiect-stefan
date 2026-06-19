@@ -7,6 +7,7 @@ import { can, ALL_PERMISSION_KEYS } from "@/lib/permissions";
 import { hashPassword } from "@/lib/password";
 import { DEMO } from "@/lib/demo";
 import { logAudit } from "@/lib/services/audit";
+import { NOTIFY_EVENT_KEYS } from "@/lib/notify-meta";
 
 export type UserState = { ok?: boolean; error?: string; id?: string } | undefined;
 
@@ -24,6 +25,13 @@ function parsePerms(formData: FormData): string[] {
     .getAll("permissions")
     .map(String)
     .filter((p) => (ALL_PERMISSION_KEYS as string[]).includes(p));
+}
+
+function parseNotifyEvents(formData: FormData): string[] {
+  return formData
+    .getAll("notifyEvents")
+    .map(String)
+    .filter((e) => NOTIFY_EVENT_KEYS.includes(e));
 }
 
 export async function createUser(
@@ -55,6 +63,7 @@ export async function createUser(
       role,
       isActive,
       permissions: role === "ADMIN" ? [] : parsePerms(formData),
+      notifyEvents: parseNotifyEvents(formData),
       telegramChatId: String(formData.get("telegramChatId") ?? "").trim() || null,
     },
     select: { id: true },
@@ -87,9 +96,10 @@ export async function updateUser(
 
   const before = await prisma.user.findUnique({
     where: { id },
-    select: { name: true, role: true, isActive: true, permissions: true },
+    select: { name: true, role: true, isActive: true, permissions: true, notifyEvents: true },
   });
   const newPerms = role === "ADMIN" ? [] : parsePerms(formData);
+  const newNotify = parseNotifyEvents(formData);
 
   await prisma.user.update({
     where: { id },
@@ -98,6 +108,7 @@ export async function updateUser(
       role,
       isActive,
       permissions: newPerms,
+      notifyEvents: newNotify,
       telegramChatId: String(formData.get("telegramChatId") ?? "").trim() || null,
       ...(newPassword.length >= 8 ? { passwordHash: await hashPassword(newPassword) } : {}),
     },
@@ -121,6 +132,17 @@ export async function updateUser(
       objectName: name,
       oldValue: before.permissions.join(", ") || "—",
       newValue: newPerms.join(", ") || "—",
+    });
+  }
+  // Log dedicat la schimbarea setărilor de notificări
+  if (before && !sameSet(before.notifyEvents, newNotify)) {
+    await logAudit(a, {
+      action: "notifications.settings_change",
+      module: "Notifications",
+      objectId: id,
+      objectName: name,
+      oldValue: before.notifyEvents.join(", ") || "—",
+      newValue: newNotify.join(", ") || "—",
     });
   }
   invalidate();
