@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { deleteClient } from "@/app/actions/clients";
 import ClientDialog, { type ClientEdit } from "./ClientDialog";
 import { useToast } from "./toast";
@@ -32,15 +32,6 @@ export default function ClientsList({
     client: null,
   });
 
-  const [fSearch, setFSearch] = useState("");
-  const filtered = useMemo(() => {
-    const term = fSearch.trim().toLowerCase();
-    if (!term) return rows;
-    return rows.filter((c) =>
-      `${c.name} ${c.phone ?? ""} ${c.email ?? ""}`.toLowerCase().includes(term),
-    );
-  }, [rows, fSearch]);
-
   function remove(id: string) {
     if (!confirm("Ștergi clientul? Programările lui se șterg și ele.")) return;
     const prev = rows;
@@ -62,24 +53,13 @@ export default function ClientsList({
         + Client nou
       </button>
 
-      <input
-        value={fSearch}
-        onChange={(e) => setFSearch(e.target.value)}
-        placeholder="Caută după nume, telefon, email…"
-        className="mb-3 h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
-      />
-
       {rows.length === 0 ? (
         <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">
           Niciun client găsit.
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">
-          Niciun rezultat pentru căutare.
-        </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {filtered.map((c) => (
+          {rows.map((c) => (
             <div key={c.id} className="card flex items-center gap-3 p-3">
               <div className="grid size-10 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-strong">
                 {c.name.slice(0, 1).toUpperCase()}

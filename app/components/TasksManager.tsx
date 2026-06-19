@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createTaskAction,
@@ -60,6 +60,11 @@ const PRIO_RO = { LOW: "Scăzută", MEDIUM: "Medie", HIGH: "Ridicată", URGENT: 
 const STATUSES: Status[] = ["NEW", "ASSIGNED", "READ", "IN_PROGRESS", "ON_HOLD", "REVIEW", "DONE", "CANCELLED"];
 const PROGRESS = [0, 25, 50, 75, 100];
 
+type TaskFilters = {
+  q: string; status: string; type: string; assignee: string;
+  proj: string; client: string; prio: string; due: string;
+};
+
 const fld =
   "h-9 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand";
 const dlgInput =
@@ -74,6 +79,7 @@ export default function TasksManager({
   teams,
   projects,
   clients = [],
+  filters,
   canCreate,
   canDelete,
   canCreateProject = false,
@@ -88,6 +94,7 @@ export default function TasksManager({
   teams: Opt[];
   projects: Opt[];
   clients?: Opt[];
+  filters: TaskFilters;
   canCreate: boolean;
   canDelete: boolean;
   canCreateProject?: boolean;
@@ -122,37 +129,30 @@ export default function TasksManager({
     }
   }
 
-  // Filtre client-side (instant, fără reload)
-  const [fSearch, setFSearch] = useState("");
-  const [fStatus, setFStatus] = useState("");
-  const [fType, setFType] = useState("");
-  const [fAssignee, setFAssignee] = useState("");
-  const [fProject, setFProject] = useState("");
-  const [fClient, setFClient] = useState("");
-  const [fPriority, setFPriority] = useState("");
-  const [fDue, setFDue] = useState("");
+  // Filtrare 100% pe server: filtrele se reflectă în URL, pagina re-cere datele.
+  const [searchInput, setSearchInput] = useState(filters.q);
+  useEffect(() => setSearchInput(filters.q), [filters.q]);
 
-  const filtered = useMemo(() => {
-    const term = fSearch.trim().toLowerCase();
-    const dueTs = fDue ? new Date(`${fDue}T23:59:59`).getTime() : null;
-    return tasks.filter((t) => {
-      if (fStatus && t.status !== fStatus) return false;
-      if (fType && t.type !== fType) return false;
-      if (fAssignee && t.assigneeId !== fAssignee) return false;
-      if (fProject && t.projectId !== fProject) return false;
-      if (fClient && t.clientId !== fClient) return false;
-      if (fPriority && t.priority !== fPriority) return false;
-      if (term && !t.title.toLowerCase().includes(term)) return false;
-      if (dueTs) {
-        if (!t.dueAt) return false;
-        if (new Date(t.dueAt).getTime() > dueTs) return false;
-      }
-      return true;
-    });
-  }, [tasks, fSearch, fStatus, fType, fAssignee, fProject, fClient, fPriority, fDue]);
+  function buildUrl(patch: Partial<TaskFilters & { page: number }>) {
+    const merged = { ...filters, ...patch } as Record<string, string | number | undefined>;
+    const usp = new URLSearchParams();
+    if (scope !== "mine") usp.set("scope", scope);
+    for (const k of ["q", "status", "type", "assignee", "proj", "client", "prio", "due"] as const) {
+      const v = merged[k];
+      if (v) usp.set(k, String(v));
+    }
+    // resetăm pagina la 1 la schimbarea unui filtru, dacă nu s-a cerut explicit altă pagină
+    const pageVal = "page" in patch ? Number(patch.page) : 1;
+    if (pageVal > 1) usp.set("page", String(pageVal));
+    const qs = usp.toString();
+    return `/tasks${qs ? `?${qs}` : ""}`;
+  }
+  function setFilter(patch: Partial<TaskFilters>) {
+    router.push(buildUrl(patch));
+  }
 
   function goPage(n: number) {
-    router.push(`/tasks?scope=${scope}${n > 1 ? `&page=${n}` : ""}`);
+    router.push(buildUrl({ page: n }));
   }
 
   function changeStatus(id: string, next: Status) {
@@ -205,56 +205,58 @@ export default function TasksManager({
   }
 
   const activeFilters = Boolean(
-    fStatus || fType || fAssignee || fProject || fClient || fPriority || fDue || fSearch,
+    filters.status || filters.type || filters.assignee || filters.proj ||
+    filters.client || filters.prio || filters.due || filters.q,
   );
-  function resetFilters() {
-    setFSearch(""); setFStatus(""); setFType(""); setFAssignee("");
-    setFProject(""); setFClient(""); setFPriority(""); setFDue("");
-  }
 
   return (
     <>
-      {/* Filtre (client-side, instant) */}
+      {/* Filtre (pe server — reflectate în URL) */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input
-          value={fSearch}
-          onChange={(e) => setFSearch(e.target.value)}
-          placeholder="Caută…"
-          className="h-9 min-w-40 flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
-        />
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className={fld}>
+        <form
+          onSubmit={(e) => { e.preventDefault(); setFilter({ q: searchInput }); }}
+          className="flex min-w-40 flex-1 items-center"
+        >
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Caută… (Enter)"
+            className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
+          />
+        </form>
+        <select value={filters.status} onChange={(e) => setFilter({ status: e.target.value })} className={fld}>
           <option value="">Status: toate</option>
           {STATUSES.map((s) => <option key={s} value={s}>{ST[s].label}</option>)}
         </select>
-        <select value={fType} onChange={(e) => setFType(e.target.value)} className={fld}>
+        <select value={filters.type} onChange={(e) => setFilter({ type: e.target.value })} className={fld}>
           <option value="">Tip: toate</option>
           <option value="TASK">Task</option>
           <option value="TICKET">Tichet</option>
           <option value="WORK_ORDER">Work order</option>
         </select>
-        <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)} className={fld}>
+        <select value={filters.assignee} onChange={(e) => setFilter({ assignee: e.target.value })} className={fld}>
           <option value="">Persoană: toți</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
-        <select value={fProject} onChange={(e) => setFProject(e.target.value)} className={fld}>
+        <select value={filters.proj} onChange={(e) => setFilter({ proj: e.target.value })} className={fld}>
           <option value="">Proiect: toate</option>
           {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select>
-        <select value={fClient} onChange={(e) => setFClient(e.target.value)} className={fld}>
+        <select value={filters.client} onChange={(e) => setFilter({ client: e.target.value })} className={fld}>
           <option value="">Client: toți</option>
           {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
-        <select value={fPriority} onChange={(e) => setFPriority(e.target.value)} className={fld}>
+        <select value={filters.prio} onChange={(e) => setFilter({ prio: e.target.value })} className={fld}>
           <option value="">Prioritate: toate</option>
           <option value="LOW">Scăzută</option>
           <option value="MEDIUM">Medie</option>
           <option value="HIGH">Ridicată</option>
           <option value="URGENT">Urgentă</option>
         </select>
-        <input type="date" value={fDue} onChange={(e) => setFDue(e.target.value)} title="Scadent până la" className={fld} />
+        <input type="date" value={filters.due} onChange={(e) => setFilter({ due: e.target.value })} title="Scadent până la" className={fld} />
         {activeFilters && (
           <button
-            onClick={resetFilters}
+            onClick={() => router.push(scope !== "mine" ? `/tasks?scope=${scope}` : "/tasks")}
             className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]"
           >
             Resetează
@@ -273,13 +275,13 @@ export default function TasksManager({
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {tasks.length === 0 ? (
         <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">
-          {tasks.length === 0 ? "Niciun task." : "Niciun rezultat pentru filtre."}
+          {activeFilters ? "Niciun rezultat pentru filtre." : "Niciun task."}
         </div>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {filtered.map((t) => (
+          {tasks.map((t) => (
             <div key={t.id} className="card overflow-hidden">
               <div className="flex items-center gap-2.5 px-3 py-2">
                 <span className={`size-2.5 shrink-0 rounded-full ${ST[t.status].dot}`} title={ST[t.status].label} />

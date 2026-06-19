@@ -7,6 +7,7 @@ import { teamOptions } from "@/lib/queries/teams";
 import { projectOptions } from "@/lib/queries/projects";
 import { invoiceClientOptions } from "@/lib/queries/invoices";
 import TasksManager from "@/app/components/TasksManager";
+import type { TaskStatus, TaskType, TaskPriority } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +17,22 @@ const SCOPES = [
   { key: "created", label: "Create de mine" },
 ] as const;
 
+const STATUS_SET = new Set(["NEW", "ASSIGNED", "READ", "IN_PROGRESS", "ON_HOLD", "REVIEW", "DONE", "CANCELLED"]);
+const TYPE_SET = new Set(["TASK", "TICKET", "WORK_ORDER"]);
+const PRIO_SET = new Set(["LOW", "MEDIUM", "HIGH", "URGENT"]);
+
+function pick<T extends string>(v: string | undefined, set: Set<string>): T | undefined {
+  return v && set.has(v) ? (v as T) : undefined;
+}
+
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scope?: string; page?: string; create?: string; project?: string }>;
+  searchParams: Promise<{
+    scope?: string; page?: string; create?: string; project?: string;
+    q?: string; status?: string; type?: string; assignee?: string;
+    proj?: string; client?: string; prio?: string; due?: string;
+  }>;
 }) {
   const user = await requirePermission("tasks.view");
   const sp = await searchParams;
@@ -31,9 +44,25 @@ export default async function TasksPage({
     sp.create === "ticket" ? "TICKET" : sp.create === "work_order" ? "WORK_ORDER" : sp.create === "task" ? "TASK" : undefined;
   const initialProjectId = typeof sp.project === "string" ? sp.project : undefined;
 
-  // Încărcăm setul scope-ului (server); filtrele status/tip/persoană/dată se aplică pe client (instant).
+  const dueBefore = /^\d{4}-\d{2}-\d{2}$/.test(sp.due ?? "") ? new Date(`${sp.due}T23:59:59.999`) : undefined;
+
+  // Filtrare 100% pe server: aducem doar ce se potrivește, paginat.
   const [result, users, teams, projects, clients] = await Promise.all([
-    listTasks({ scope, userId: user.id, teamIds: user.teamIds, page, pageSize: 100 }),
+    listTasks({
+      scope,
+      userId: user.id,
+      teamIds: user.teamIds,
+      status: pick<TaskStatus>(sp.status, STATUS_SET),
+      type: pick<TaskType>(sp.type, TYPE_SET),
+      priority: pick<TaskPriority>(sp.prio, PRIO_SET),
+      assigneeId: sp.assignee || undefined,
+      projectId: sp.proj || undefined,
+      clientId: sp.client || undefined,
+      dueBefore,
+      search: sp.q || undefined,
+      page,
+      pageSize: 30,
+    }),
     userOptions(),
     teamOptions(),
     projectOptions(),
@@ -66,6 +95,16 @@ export default async function TasksPage({
         teams={teams}
         projects={projects}
         clients={clients}
+        filters={{
+          q: sp.q ?? "",
+          status: sp.status ?? "",
+          type: sp.type ?? "",
+          assignee: sp.assignee ?? "",
+          proj: sp.proj ?? "",
+          client: sp.client ?? "",
+          prio: sp.prio ?? "",
+          due: sp.due ?? "",
+        }}
         canCreate={can(user, "tasks.create")}
         canDelete={can(user, "tasks.delete")}
         canCreateProject={can(user, "projects.create")}

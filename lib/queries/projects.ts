@@ -16,9 +16,34 @@ export type ProjectRow = {
   taskCount: number;
 };
 
-export async function listProjects(): Promise<ProjectRow[]> {
-  if (DEMO) return [];
+export type ProjectFilter = {
+  search?: string;
+  status?: ProjectStatus;
+  page?: number;
+  pageSize?: number;
+};
+
+const PROJECT_PAGE_SIZE = 30;
+
+export async function listProjects(
+  filter: ProjectFilter = {},
+): Promise<{ items: ProjectRow[]; hasMore: boolean; page: number }> {
+  if (DEMO) return { items: [], hasMore: false, page: 1 };
+  const page = Math.max(1, filter.page ?? 1);
+  const pageSize = filter.pageSize ?? PROJECT_PAGE_SIZE;
+
+  const where: import("@prisma/client").Prisma.ProjectWhereInput = {};
+  if (filter.status) where.status = filter.status;
+  if (filter.search?.trim()) {
+    const s = filter.search.trim();
+    where.OR = [
+      { name: { contains: s, mode: "insensitive" } },
+      { description: { contains: s, mode: "insensitive" } },
+    ];
+  }
+
   const rows = await prisma.project.findMany({
+    where,
     select: {
       id: true,
       name: true,
@@ -31,18 +56,26 @@ export async function listProjects(): Promise<ProjectRow[]> {
       _count: { select: { tasks: true } },
     },
     orderBy: { createdAt: "desc" },
+    skip: (page - 1) * pageSize,
+    take: pageSize + 1,
   });
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    status: r.status,
-    ownerId: r.ownerId,
-    clientId: r.clientId,
-    assigneeId: r.assigneeId,
-    teamId: r.teamId,
-    taskCount: r._count.tasks,
-  }));
+
+  const hasMore = rows.length > pageSize;
+  return {
+    items: rows.slice(0, pageSize).map((r) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      status: r.status,
+      ownerId: r.ownerId,
+      clientId: r.clientId,
+      assigneeId: r.assigneeId,
+      teamId: r.teamId,
+      taskCount: r._count.tasks,
+    })),
+    hasMore,
+    page,
+  };
 }
 
 export const projectOptions = unstable_cache(

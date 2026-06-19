@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -10,7 +10,7 @@ import {
   type ProjectState,
 } from "@/app/actions/projects";
 import { useToast } from "./toast";
-import { IconX, IconPencil, IconTrash, IconPlus } from "./icons";
+import { IconX, IconPencil, IconTrash, IconPlus, IconChevronLeft, IconChevronRight } from "./icons";
 
 type Opt = { id: string; name: string };
 type Project = {
@@ -33,14 +33,21 @@ export default function ProjectsManager({
   users,
   teams,
   clients,
+  page = 1,
+  hasMore = false,
+  filters = { q: "", status: "" },
   openCreate,
 }: {
   projects: Project[];
   users: Opt[];
   teams: Opt[];
   clients: Opt[];
+  page?: number;
+  hasMore?: boolean;
+  filters?: { q: string; status: string };
   openCreate?: boolean;
 }) {
+  const router = useRouter();
   const toast = useToast();
   const [rows, setRows] = useState(projects);
   useEffect(() => setRows(projects), [projects]);
@@ -49,17 +56,21 @@ export default function ProjectsManager({
     project: null,
   });
 
-  // Filtre client-side (instant)
-  const [fSearch, setFSearch] = useState("");
-  const [fStatus, setFStatus] = useState("");
-  const filtered = useMemo(() => {
-    const term = fSearch.trim().toLowerCase();
-    return rows.filter((p) => {
-      if (fStatus && p.status !== fStatus) return false;
-      if (term && !`${p.name} ${p.description ?? ""}`.toLowerCase().includes(term)) return false;
-      return true;
-    });
-  }, [rows, fSearch, fStatus]);
+  // Filtrare pe server (reflectată în URL)
+  const [searchInput, setSearchInput] = useState(filters.q);
+  useEffect(() => setSearchInput(filters.q), [filters.q]);
+
+  function buildUrl(patch: { q?: string; status?: string; page?: number }) {
+    const merged = { q: filters.q, status: filters.status, ...patch } as Record<string, string | number | undefined>;
+    const usp = new URLSearchParams();
+    if (merged.q) usp.set("q", String(merged.q));
+    if (merged.status) usp.set("status", String(merged.status));
+    const pageVal = "page" in patch ? Number(patch.page) : 1;
+    if (pageVal > 1) usp.set("page", String(pageVal));
+    const qs = usp.toString();
+    return `/projects${qs ? `?${qs}` : ""}`;
+  }
+  const activeFilters = Boolean(filters.q || filters.status);
 
   const nameOf = (id: string | null, list: Opt[]) => list.find((o) => o.id === id)?.name;
 
@@ -85,33 +96,38 @@ export default function ProjectsManager({
       </button>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <input
-          value={fSearch}
-          onChange={(e) => setFSearch(e.target.value)}
-          placeholder="Caută proiect…"
-          className="h-9 min-w-40 flex-1 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
-        />
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="h-9 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand">
+        <form
+          onSubmit={(e) => { e.preventDefault(); router.push(buildUrl({ q: searchInput })); }}
+          className="flex min-w-40 flex-1 items-center"
+        >
+          <input
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Caută proiect… (Enter)"
+            className="h-9 w-full rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-3 text-sm outline-none focus:border-brand"
+          />
+        </form>
+        <select value={filters.status} onChange={(e) => router.push(buildUrl({ status: e.target.value }))} className="h-9 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-brand">
           <option value="">Status: toate</option>
           <option value="ACTIVE">Activ</option>
           <option value="ON_HOLD">În așteptare</option>
           <option value="DONE">Finalizat</option>
           <option value="ARCHIVED">Arhivat</option>
         </select>
-        {(fSearch || fStatus) && (
-          <button onClick={() => { setFSearch(""); setFStatus(""); }} className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]">
+        {activeFilters && (
+          <button onClick={() => router.push("/projects")} className="tap h-9 rounded-lg border border-[var(--color-line)] px-3 text-xs text-ink-soft hover:bg-[var(--color-surface-2)]">
             Resetează
           </button>
         )}
       </div>
 
       {rows.length === 0 ? (
-        <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">Niciun proiect.</div>
-      ) : filtered.length === 0 ? (
-        <div className="card grid place-items-center p-8 text-center text-sm text-ink-soft">Niciun rezultat pentru filtre.</div>
+        <div className="card grid place-items-center p-10 text-center text-sm text-ink-soft">
+          {activeFilters ? "Niciun rezultat pentru filtre." : "Niciun proiect."}
+        </div>
       ) : (
         <div className="flex flex-col gap-2.5">
-          {filtered.map((p) => (
+          {rows.map((p) => (
             <div key={p.id} className="card flex items-center gap-3 p-3.5">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{p.name}</p>
@@ -133,6 +149,26 @@ export default function ProjectsManager({
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {(page > 1 || hasMore) && (
+        <div className="mt-4 flex items-center justify-between">
+          <button
+            disabled={page <= 1}
+            onClick={() => router.push(buildUrl({ page: page - 1 }))}
+            className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+          >
+            <IconChevronLeft className="size-4" /> Anterior
+          </button>
+          <span className="text-sm text-ink-soft">Pagina {page}</span>
+          <button
+            disabled={!hasMore}
+            onClick={() => router.push(buildUrl({ page: page + 1 }))}
+            className="tap card inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+          >
+            Următor <IconChevronRight className="size-4" />
+          </button>
         </div>
       )}
 
